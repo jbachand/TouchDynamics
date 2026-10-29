@@ -120,8 +120,58 @@ final class TouchInteractionEngineTests: XCTestCase {
         XCTAssertEqual(rec.dissipates.first?.1, true)
     }
 
-    func testScrollTakeoverDissipatesAndSuppressesNewTouches() {
+    func testScrollTakeoverMaintainsTheEffectByDefault() {
         let (engine, rec) = makeEngine()
+        let id = TouchIdentifier.test(1)
+        engine.handle(.began(id: id, location: CGPoint(x: 50, y: 20), time: 0))
+        engine.handle(.moved(id: id, location: CGPoint(x: 50, y: 24), time: 0.05))
+        engine.scrollDidBegin(at: 0.1)
+
+        XCTAssertTrue(rec.dissipates.isEmpty, "the effect stays alive")
+        XCTAssertEqual(engine.session(for: id)?.phase, .pressing)
+        XCTAssertEqual(engine.session(for: id)?.didScroll, true)
+        XCTAssertEqual(engine.state, .pressing)
+
+        // The finger keeps being tracked while the content scrolls with it.
+        engine.handle(.moved(id: id, location: CGPoint(x: 51, y: 22), time: 0.2))
+        XCTAssertEqual(rec.tracks.last?.currentLocation, CGPoint(x: 51, y: 22))
+
+        // A second finger during the scroll lights up too.
+        let id2 = TouchIdentifier.test(2)
+        engine.handle(.began(id: id2, location: CGPoint(x: 120, y: 20), time: 0.3))
+        XCTAssertEqual(rec.illuminates.count, 2)
+        XCTAssertEqual(engine.session(for: id2)?.didScroll, true)
+
+        // Lifting after a scroll fades without a ripple by default.
+        engine.handle(.ended(id: id, location: CGPoint(x: 51, y: 22), time: 0.5))
+        XCTAssertEqual(rec.releases.count, 1)
+        XCTAssertFalse(rec.releases[0].1, "no ripple after a scroll")
+        XCTAssertEqual(engine.session(for: id)?.phase, .releasing)
+    }
+
+    func testReleaseAfterScrollCanRipple() {
+        var config = GestureConfiguration()
+        config.releaseAfterScroll = .ripple
+        let (engine, rec) = makeEngine(configuration: config)
+        engine.handle(.began(id: .test(1), location: CGPoint(x: 50, y: 20), time: 0))
+        engine.scrollDidBegin(at: 0.1)
+        engine.handle(.ended(id: .test(1), location: CGPoint(x: 50, y: 20), time: 0.5))
+        XCTAssertEqual(rec.releases.first?.1, true)
+    }
+
+    func testMaintainedScrollReleaseOutsideBoundsDissipates() {
+        let (engine, rec) = makeEngine()
+        engine.handle(.began(id: .test(1), location: CGPoint(x: 50, y: 20), time: 0))
+        engine.scrollDidBegin(at: 0.1)
+        engine.handle(.ended(id: .test(1), location: CGPoint(x: 50, y: 400), time: 0.5))
+        XCTAssertEqual(rec.releases.count, 0)
+        XCTAssertEqual(rec.dissipates.count, 1)
+    }
+
+    func testScrollTakeoverDissipatesAndSuppressesNewTouches() {
+        var config = GestureConfiguration()
+        config.scrollTakeover = .dissipate
+        let (engine, rec) = makeEngine(configuration: config)
         let id = TouchIdentifier.test(1)
         engine.handle(.began(id: id, location: CGPoint(x: 50, y: 20), time: 0))
         engine.handle(.moved(id: id, location: CGPoint(x: 50, y: 26), time: 0.03))
@@ -155,7 +205,9 @@ final class TouchInteractionEngineTests: XCTestCase {
     func testScrollStateClearsWhenNoFingersRemain() {
         // Hold, scroll, lift. The pan's end notification never arrives because
         // observation stopped at touch-up; the next finger must still light.
-        let (engine, rec) = makeEngine()
+        var config = GestureConfiguration()
+        config.scrollTakeover = .dissipate
+        let (engine, rec) = makeEngine(configuration: config)
         engine.handle(.began(id: .test(1), location: CGPoint(x: 50, y: 20), time: 0))
         engine.scrollDidBegin(at: 0.8)
         engine.handle(.moved(id: .test(1), location: CGPoint(x: 50, y: -200), time: 1.0))
@@ -172,7 +224,9 @@ final class TouchInteractionEngineTests: XCTestCase {
     }
 
     func testSecondFingerDuringLiveScrollStaysDark() {
-        let (engine, rec) = makeEngine()
+        var config = GestureConfiguration()
+        config.scrollTakeover = .dissipate
+        let (engine, rec) = makeEngine(configuration: config)
         engine.handle(.began(id: .test(1), location: CGPoint(x: 50, y: 20), time: 0))
         engine.scrollDidBegin(at: 0.5)
         engine.handle(.began(id: .test(2), location: CGPoint(x: 90, y: 20), time: 0.6))

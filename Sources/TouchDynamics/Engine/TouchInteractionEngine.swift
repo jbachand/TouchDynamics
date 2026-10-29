@@ -71,19 +71,32 @@ public final class TouchInteractionEngine {
         updateAggregateState()
     }
 
-    /// An ancestor scroll view started scrolling. Active sessions dissipate and
-    /// move to ``TouchPhase/scrolling``; new touches during the scroll show
-    /// nothing, like a native highlight.
+    /// An ancestor scroll view started scrolling.
+    ///
+    /// Under ``ScrollTakeoverBehavior/maintain`` active sessions keep their
+    /// phase and are flagged ``TouchSession/didScroll``. Otherwise they
+    /// dissipate and move to ``TouchPhase/scrolling``, and new touches during
+    /// the scroll show nothing, like a native highlight.
     public func scrollDidBegin(at time: TimeInterval? = nil) {
         guard state != .detached else { return }
         isScrolling = true
         let now = time ?? clock.now()
         for id in order {
             guard var s = storage[id], s.phase == .pressing || s.phase == .tracking else { continue }
-            s.phase = .scrolling
             s.elapsedTime = now - s.startTime
-            storage[id] = s
-            emit(.dissipate(s, immediate: configuration.scrollTakeover == .suppress))
+            s.didScroll = true
+            switch configuration.scrollTakeover {
+            case .maintain:
+                storage[id] = s
+            case .dissipate:
+                s.phase = .scrolling
+                storage[id] = s
+                emit(.dissipate(s, immediate: false))
+            case .suppress:
+                s.phase = .scrolling
+                storage[id] = s
+                emit(.dissipate(s, immediate: true))
+            }
         }
         updateAggregateState()
     }
@@ -166,9 +179,12 @@ public final class TouchInteractionEngine {
             isInsideBounds: containsWithMargin(location)
         )
         if isScrolling {
-            session.phase = .scrolling
-            insert(session)
-            return
+            session.didScroll = true
+            if configuration.scrollTakeover != .maintain {
+                session.phase = .scrolling
+                insert(session)
+                return
+            }
         }
         session.phase = .pressing
         insert(session)
@@ -230,7 +246,12 @@ public final class TouchInteractionEngine {
         switch s.phase {
         case .pressing, .tracking:
             if s.isInsideBounds {
-                let ripple = s.phase == .pressing || configuration.releaseAfterDrag == .ripple
+                let ripple: Bool
+                if s.didScroll {
+                    ripple = configuration.releaseAfterScroll == .ripple
+                } else {
+                    ripple = s.phase == .pressing || configuration.releaseAfterDrag == .ripple
+                }
                 s.phase = .releasing
                 finishTimes[id] = time
                 storage[id] = s

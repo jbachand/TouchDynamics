@@ -20,6 +20,10 @@ final class ConfigurationTests: XCTestCase {
         XCTAssertTrue(TouchDynamicsConfiguration.rippleOnly.ripple.isEnabled)
         XCTAssertEqual(TouchDynamicsConfiguration.material.illumination.tracking, .anchored)
         XCTAssertEqual(TouchDynamicsConfiguration.material.gesture.dragBehavior, .dissipate)
+        XCTAssertEqual(TouchDynamicsConfiguration.material.gesture.scrollTakeover, .dissipate)
+        XCTAssertEqual(TouchDynamicsConfiguration.fluid.gesture.scrollTakeover, .maintain)
+        XCTAssertEqual(GestureConfiguration().scrollTakeover, .maintain)
+        XCTAssertEqual(GestureConfiguration().releaseAfterScroll, .dissipate)
         XCTAssertGreaterThan(TouchDynamicsConfiguration.elastic.elasticity.strength, TouchDynamicsConfiguration.fluid.elasticity.strength)
         XCTAssertLessThan(TouchDynamicsConfiguration.subtle.illumination.intensity, TouchDynamicsConfiguration.fluid.illumination.intensity)
         XCTAssertEqual(TouchDynamicsConfiguration.fluid.elasticity.damping, 0.72)
@@ -68,7 +72,7 @@ final class ConfigurationTests: XCTestCase {
     }
 
     func testVersion() {
-        XCTAssertEqual(TouchDynamics.version, "1.0.1")
+        XCTAssertEqual(TouchDynamics.version, "1.1.0")
     }
 
     func testTouchIdentifierFromObjectIsStable() {

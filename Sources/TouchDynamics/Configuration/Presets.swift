@@ -28,12 +28,13 @@ public extension TouchDynamicsConfiguration {
     )
 
     /// Soft, diffused, surface-oriented feedback. The illumination stays where
-    /// the touch began and a drag dissipates it, like a material surface.
+    /// the touch began, and a drag or a scroll dissipates it, like a material
+    /// surface.
     static let material = TouchDynamicsConfiguration(
         illumination: .init(intensity: 0.12, radius: 160, falloff: 0.7, rampInDuration: 0.12, tracking: .anchored),
         ripple: .init(duration: 0.45, profile: .softGradient, decay: 1.8, origin: .initialLocation),
         elasticity: .init(strength: 0.008, mode: .uniformScale, tension: 0, damping: 0.9, stiffness: 400),
-        gesture: .init(dragBehavior: .dissipate)
+        gesture: .init(dragBehavior: .dissipate, scrollTakeover: .dissipate)
     )
 
     /// Illumination and wave without any deformation.

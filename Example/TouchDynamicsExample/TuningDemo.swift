@@ -89,8 +89,13 @@ struct TuningDemo: View {
                         Text("Dissipate").tag(ReleaseBehavior.dissipate)
                     }
                     Picker("Scroll takeover", selection: $tuning.configuration.gesture.scrollTakeover) {
-                        Text("Dissipate").tag(CancellationBehavior.dissipate)
-                        Text("Suppress").tag(CancellationBehavior.suppress)
+                        Text("Maintain").tag(ScrollTakeoverBehavior.maintain)
+                        Text("Dissipate").tag(ScrollTakeoverBehavior.dissipate)
+                        Text("Suppress").tag(ScrollTakeoverBehavior.suppress)
+                    }
+                    Picker("Release after scroll", selection: $tuning.configuration.gesture.releaseAfterScroll) {
+                        Text("Dissipate").tag(ReleaseBehavior.dissipate)
+                        Text("Ripple").tag(ReleaseBehavior.ripple)
                     }
                 }
 

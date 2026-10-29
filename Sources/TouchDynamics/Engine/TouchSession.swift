@@ -16,7 +16,10 @@ public enum TouchPhase: String, Sendable, Hashable, CaseIterable {
     case settling
     /// Cancelled by the system or by a drag; the effect is dissipating.
     case cancelled
-    /// An ancestor scroll view took the gesture; nothing further is shown.
+    /// An ancestor scroll view took the gesture and the effect was dropped
+    /// (``ScrollTakeoverBehavior/dissipate`` or ``ScrollTakeoverBehavior/suppress``);
+    /// nothing further is shown. Under ``ScrollTakeoverBehavior/maintain`` the
+    /// session keeps its phase and ``TouchSession/didScroll`` is set instead.
     case scrolling
 
     /// The finger is still on the screen.
@@ -65,6 +68,8 @@ public struct TouchSession: Sendable, Equatable {
     public var isInsideBounds: Bool
     /// Set once the press has lasted ``GestureConfiguration/longPressDuration``.
     public var isLongPress: Bool
+    /// Set when the content scrolled while this finger was down.
+    public var didScroll: Bool
     /// Where the finger lifted, once it has.
     public var releaseLocation: CGPoint?
 
@@ -85,6 +90,7 @@ public struct TouchSession: Sendable, Equatable {
         self.lastUpdateTime = startTime
         self.isInsideBounds = isInsideBounds
         self.isLongPress = false
+        self.didScroll = false
         self.releaseLocation = nil
     }
 
@@ -111,6 +117,7 @@ public struct TouchSession: Sendable, Equatable {
             && lhs.lastUpdateTime == rhs.lastUpdateTime
             && lhs.isInsideBounds == rhs.isInsideBounds
             && lhs.isLongPress == rhs.isLongPress
+            && lhs.didScroll == rhs.didScroll
             && lhs.releaseLocation == rhs.releaseLocation
     }
 }

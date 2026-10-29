@@ -30,8 +30,8 @@ the touch lands even inside scroll views with `delaysContentTouches`.
 | --- | --- |
 | Tap | Illuminate → ripple → spring release |
 | Long press | Illumination and deformation deepen after ``GestureConfiguration/longPressDuration`` |
-| Vertical scroll | Ancestor scroll view's pan begins → effect dissipates, no ripple |
-| Horizontal swipe | Preserved; the effect tracks within the slop then dissipates with the scroll |
+| Vertical scroll | Ancestor scroll view's pan begins → the effect rides along: illumination stays under the finger, deformation holds (``ScrollTakeoverBehavior/maintain``, default); lifting fades without a ripple unless ``GestureConfiguration/releaseAfterScroll`` is `.ripple`. ``ScrollTakeoverBehavior/dissipate`` and ``ScrollTakeoverBehavior/suppress`` drop it like a native highlight |
+| Horizontal swipe | Preserved; the effect rides along with the swipe the same way |
 | Drag | Beyond ``GestureConfiguration/tapSlop``: ``DragBehavior/follow`` (default) or ``DragBehavior/dissipate`` |
 | Drag out | Beyond bounds + ``GestureConfiguration/exitMargin``: dims, release dissipates |
 | Cancellation | ``CancellationBehavior/dissipate`` or ``CancellationBehavior/suppress`` |
@@ -43,8 +43,12 @@ the touch lands even inside scroll views with `delaysContentTouches`.
 At touch-down the attachment adds a target-action to the
 `panGestureRecognizer` of every ancestor `UIScrollView` (nested containers
 included). When any pan enters `.began` the engine receives
-``TouchInteractionEngine/scrollDidBegin(at:)``: active sessions dissipate and
-new fingers during the scroll show nothing, matching native highlight behavior.
+``TouchInteractionEngine/scrollDidBegin(at:)``. With the default
+``ScrollTakeoverBehavior/maintain`` the sessions simply remember that the
+content scrolled (``TouchSession/didScroll``) and keep going; with
+``ScrollTakeoverBehavior/dissipate`` or ``ScrollTakeoverBehavior/suppress``
+active sessions drop and new fingers during the scroll show nothing, matching
+native highlight behavior.
 
 Three more signals cover the gaps:
 

@@ -18,11 +18,24 @@ public enum ReleaseBehavior: Sendable, Equatable {
     case dissipate
 }
 
-/// How an effect is removed when the gesture is cancelled or a scroll takes over.
+/// How an effect is removed when the gesture is cancelled.
 public enum CancellationBehavior: Sendable, Equatable {
     /// A short fade and spring back.
     case dissipate
     /// Immediate removal with no animation.
+    case suppress
+}
+
+/// What happens to a live effect when an ancestor scroll view starts scrolling.
+public enum ScrollTakeoverBehavior: Sendable, Equatable {
+    /// Keep the effect alive: the illumination stays under the finger and the
+    /// deformation holds while the content scrolls with it. Lifting the finger
+    /// then follows ``GestureConfiguration/releaseAfterScroll``. Default.
+    case maintain
+    /// A short fade and spring back; fingers landing during the scroll show
+    /// nothing, like a native highlight.
+    case dissipate
+    /// Immediate removal; fingers landing during the scroll show nothing.
     case suppress
 }
 
@@ -31,7 +44,8 @@ public enum CancellationBehavior: Sendable, Equatable {
 /// TouchDynamics never claims touches. It observes them with a gesture
 /// recognizer that cannot prevent, and cannot be prevented by, any other
 /// recognizer, and it watches ancestor scroll views' pan recognizers to learn
-/// when a scroll has taken over.
+/// when a scroll has taken over. By default the effect rides along with the
+/// scroll (``ScrollTakeoverBehavior/maintain``).
 public struct GestureConfiguration: Sendable, Equatable {
     /// Movement in points allowed before a press is considered a drag.
     public var tapSlop: CGFloat
@@ -42,7 +56,10 @@ public struct GestureConfiguration: Sendable, Equatable {
     /// Behavior when the finger lifts after a drag inside the bounds.
     public var releaseAfterDrag: ReleaseBehavior
     /// Behavior when an ancestor scroll view starts scrolling.
-    public var scrollTakeover: CancellationBehavior
+    public var scrollTakeover: ScrollTakeoverBehavior
+    /// Behavior when the finger lifts after the content scrolled under it
+    /// (``ScrollTakeoverBehavior/maintain`` only).
+    public var releaseAfterScroll: ReleaseBehavior
     /// How far the surface itself may move on screen while a finger is down
     /// before the movement is treated as a scroll. This catches containers
     /// that are not `UIScrollView`-backed; `UIScrollView` pans are observed
@@ -63,7 +80,8 @@ public struct GestureConfiguration: Sendable, Equatable {
         longPressDuration: TimeInterval = 0.5,
         dragBehavior: DragBehavior = .follow,
         releaseAfterDrag: ReleaseBehavior = .ripple,
-        scrollTakeover: CancellationBehavior = .dissipate,
+        scrollTakeover: ScrollTakeoverBehavior = .maintain,
+        releaseAfterScroll: ReleaseBehavior = .dissipate,
         scrollDetectionDistance: CGFloat = 4,
         cancellation: CancellationBehavior = .dissipate,
         exitMargin: CGFloat = 40,
@@ -75,6 +93,7 @@ public struct GestureConfiguration: Sendable, Equatable {
         self.dragBehavior = dragBehavior
         self.releaseAfterDrag = releaseAfterDrag
         self.scrollTakeover = scrollTakeover
+        self.releaseAfterScroll = releaseAfterScroll
         self.scrollDetectionDistance = max(0, scrollDetectionDistance)
         self.cancellation = cancellation
         self.exitMargin = max(0, exitMargin)

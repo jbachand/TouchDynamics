@@ -4,6 +4,19 @@ All notable changes to TouchDynamics are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] - 2026-10-28
+
+### Changed
+- A scroll no longer drops the effect by default. `GestureConfiguration.scrollTakeover`
+  is now a `ScrollTakeoverBehavior` (`.maintain` default, `.dissipate`,
+  `.suppress`): under `.maintain` the illumination stays under the finger and
+  the deformation holds while the content scrolls; lifting then follows the new
+  `releaseAfterScroll` (default `.dissipate`, no ripple). `TouchSession.didScroll`
+  records that the content moved. The `.material` preset keeps `.dissipate`.
+- Source-breaking for code that assigned a `CancellationBehavior` to
+  `scrollTakeover`; replace `.dissipate` / `.suppress` with the same cases of
+  `ScrollTakeoverBehavior`.
+
 ## [1.0.1] - 2026-10-28
 
 ### Fixed
