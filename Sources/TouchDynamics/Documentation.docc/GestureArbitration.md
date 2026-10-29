@@ -30,7 +30,7 @@ the touch lands even inside scroll views with `delaysContentTouches`.
 | --- | --- |
 | Tap | Illuminate → ripple → spring release |
 | Long press | Illumination and deformation deepen after ``GestureConfiguration/longPressDuration`` |
-| Vertical scroll | Ancestor scroll view's pan begins → the effect rides along: illumination stays under the finger, deformation holds (``ScrollTakeoverBehavior/maintain``, default); lifting fades without a ripple unless ``GestureConfiguration/releaseAfterScroll`` is `.ripple`. ``ScrollTakeoverBehavior/dissipate`` and ``ScrollTakeoverBehavior/suppress`` drop it like a native highlight |
+| Vertical scroll | Ancestor scroll view's pan begins → the effect rides along: illumination stays under the finger, deformation holds (``ScrollTakeoverBehavior/maintain``, default); lifting ripples unless ``GestureConfiguration/releaseAfterScroll`` is `.dissipate`. ``ScrollTakeoverBehavior/dissipate`` and ``ScrollTakeoverBehavior/suppress`` drop it like a native highlight |
 | Horizontal swipe | Preserved; the effect rides along with the swipe the same way |
 | Drag | Beyond ``GestureConfiguration/tapSlop``: ``DragBehavior/follow`` (default) or ``DragBehavior/dissipate`` |
 | Drag out | Beyond bounds + ``GestureConfiguration/exitMargin``: dims, release dissipates |

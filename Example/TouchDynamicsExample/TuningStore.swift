@@ -27,8 +27,20 @@ final class TuningStore: ObservableObject {
     @Published var effectsEnabled = true
 
     init() {
-        // UI-test rig: `-td-mode off|silent|noelastic|full`.
+        // UI-test rig: `-td-mode off|silent|noelastic|full`, `-td-log <path>`.
         let args = CommandLine.arguments
+        if let i = args.firstIndex(of: "-td-log"), i + 1 < args.count {
+            let path = args[i + 1]
+            FileManager.default.createFile(atPath: path, contents: Data())
+            TouchDynamics.commandObserver = { command, _ in
+                let line = Self.describe(command) + "\n"
+                if let handle = FileHandle(forWritingAtPath: path) {
+                    handle.seekToEndOfFile()
+                    handle.write(Data(line.utf8))
+                    handle.closeFile()
+                }
+            }
+        }
         if let i = args.firstIndex(of: "-td-mode"), i + 1 < args.count {
             switch args[i + 1] {
             case "off":
@@ -42,6 +54,20 @@ final class TuningStore: ObservableObject {
             default:
                 break
             }
+        }
+    }
+
+    static func describe(_ command: EngineCommand) -> String {
+        func tag(_ s: TouchSession) -> String {
+            "phase=\(s.phase.rawValue) didScroll=\(s.didScroll) inside=\(s.isInsideBounds) at=(\(Int(s.currentLocation.x)),\(Int(s.currentLocation.y)))"
+        }
+        switch command {
+        case .illuminate(let s): return "illuminate \(tag(s))"
+        case .track(let s): return "track \(tag(s))"
+        case .longPress(let s): return "longPress \(tag(s))"
+        case .release(let s, let ripple): return "release ripple=\(ripple) \(tag(s))"
+        case .dissipate(let s, let immediate): return "dissipate immediate=\(immediate) \(tag(s))"
+        case .reset: return "reset"
         }
     }
 

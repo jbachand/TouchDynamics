@@ -142,21 +142,22 @@ final class TouchInteractionEngineTests: XCTestCase {
         XCTAssertEqual(rec.illuminates.count, 2)
         XCTAssertEqual(engine.session(for: id2)?.didScroll, true)
 
-        // Lifting after a scroll fades without a ripple by default.
+        // Lifting after a scroll ripples by default.
         engine.handle(.ended(id: id, location: CGPoint(x: 51, y: 22), time: 0.5))
         XCTAssertEqual(rec.releases.count, 1)
-        XCTAssertFalse(rec.releases[0].1, "no ripple after a scroll")
+        XCTAssertTrue(rec.releases[0].1, "ripple after a scroll")
+        XCTAssertEqual(rec.releases[0].0.didScroll, true)
         XCTAssertEqual(engine.session(for: id)?.phase, .releasing)
     }
 
-    func testReleaseAfterScrollCanRipple() {
+    func testReleaseAfterScrollCanDissipate() {
         var config = GestureConfiguration()
-        config.releaseAfterScroll = .ripple
+        config.releaseAfterScroll = .dissipate
         let (engine, rec) = makeEngine(configuration: config)
         engine.handle(.began(id: .test(1), location: CGPoint(x: 50, y: 20), time: 0))
         engine.scrollDidBegin(at: 0.1)
         engine.handle(.ended(id: .test(1), location: CGPoint(x: 50, y: 20), time: 0.5))
-        XCTAssertEqual(rec.releases.first?.1, true)
+        XCTAssertEqual(rec.releases.first?.1, false)
     }
 
     func testMaintainedScrollReleaseOutsideBoundsDissipates() {

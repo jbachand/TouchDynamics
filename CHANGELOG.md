@@ -4,6 +4,18 @@ All notable changes to TouchDynamics are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.1.1] - 2026-10-28
+
+### Changed
+- `GestureConfiguration.releaseAfterScroll` now defaults to `.ripple`: lifting
+  the finger after the content scrolled under it emits the release wave.
+
+### Added
+- `TouchDynamics.commandObserver`, a diagnostics hook that sees every engine
+  command of every attachment.
+- UI test proving that a scroll-then-lift reaches the engine as a release with
+  the ripple flag through the real touch path.
+
 ## [1.1.0] - 2026-10-28
 
 ### Changed

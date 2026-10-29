@@ -183,6 +183,21 @@ final class UIKitIntegrationTests: XCTestCase {
         XCTAssertEqual(view.transform, .identity)
     }
 
+    func testCommandObserverSeesEveryCommand() {
+        let view = UIView(frame: CGRect(x: 0, y: 0, width: 200, height: 44))
+        let attachment = TouchDynamics.attach(to: view)
+        var seen: [EngineCommand] = []
+        TouchDynamics.commandObserver = { command, a in
+            XCTAssertTrue(a === attachment)
+            seen.append(command)
+        }
+        defer { TouchDynamics.commandObserver = nil }
+        attachment.engine.handle(.began(id: .test(1), location: CGPoint(x: 30, y: 20), time: 0))
+        attachment.engine.handle(.ended(id: .test(1), location: CGPoint(x: 30, y: 20), time: 0.1))
+        XCTAssertEqual(seen.count, 2)
+        if case .release(_, let ripple) = seen[1] { XCTAssertTrue(ripple) } else { XCTFail("expected a release") }
+    }
+
     func testRapidRepeatedTapsAreBounded() {
         let window = makeWindow()
         let view = UIView(frame: CGRect(x: 0, y: 0, width: 200, height: 44))

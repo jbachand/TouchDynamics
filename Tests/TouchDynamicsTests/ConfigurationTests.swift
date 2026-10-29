@@ -23,7 +23,7 @@ final class ConfigurationTests: XCTestCase {
         XCTAssertEqual(TouchDynamicsConfiguration.material.gesture.scrollTakeover, .dissipate)
         XCTAssertEqual(TouchDynamicsConfiguration.fluid.gesture.scrollTakeover, .maintain)
         XCTAssertEqual(GestureConfiguration().scrollTakeover, .maintain)
-        XCTAssertEqual(GestureConfiguration().releaseAfterScroll, .dissipate)
+        XCTAssertEqual(GestureConfiguration().releaseAfterScroll, .ripple)
         XCTAssertGreaterThan(TouchDynamicsConfiguration.elastic.elasticity.strength, TouchDynamicsConfiguration.fluid.elasticity.strength)
         XCTAssertLessThan(TouchDynamicsConfiguration.subtle.illumination.intensity, TouchDynamicsConfiguration.fluid.illumination.intensity)
         XCTAssertEqual(TouchDynamicsConfiguration.fluid.elasticity.damping, 0.72)
@@ -72,7 +72,7 @@ final class ConfigurationTests: XCTestCase {
     }
 
     func testVersion() {
-        XCTAssertEqual(TouchDynamics.version, "1.1.0")
+        XCTAssertEqual(TouchDynamics.version, "1.1.1")
     }
 
     func testTouchIdentifierFromObjectIsStable() {

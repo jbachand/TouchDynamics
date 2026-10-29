@@ -130,6 +130,34 @@ final class GesturePassThroughUITests: XCTestCase {
         checkTapTogglesLike(app, mode: "holdscroll")
     }
 
+    func testScrollThenLiftRipples() {
+        let logPath = "/tmp/td-commands.txt"
+        try? FileManager.default.removeItem(atPath: logPath)
+        let app = XCUIApplication()
+        app.launchArguments = ["-td-mode", "full", "-td-log", logPath]
+        app.launch()
+        let firstComment = app.staticTexts["This is exactly the kind of micro-interaction that makes an app feel alive."].firstMatch
+        XCTAssertTrue(firstComment.waitForExistence(timeout: 15))
+        Thread.sleep(forTimeInterval: 0.5)
+
+        // Hold, drag the content up with the finger, pause, lift.
+        let start = firstComment.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.5))
+        let end = start.withOffset(CGVector(dx: 0, dy: -220))
+        start.press(forDuration: 0.6, thenDragTo: end, withVelocity: .default, thenHoldForDuration: 0.4)
+        Thread.sleep(forTimeInterval: 1.0)
+        XCTAssertLessThan(firstComment.frame.minY, 60, "the content scrolled with the finger")
+
+        let log = (try? String(contentsOfFile: logPath, encoding: .utf8)) ?? ""
+        try? log.write(toFile: "/tmp/td-result-scrollripple.txt", atomically: true, encoding: .utf8)
+        let lines = log.split(separator: "\n").map(String.init)
+        XCTAssertTrue(lines.contains { $0.hasPrefix("illuminate") }, "touch-down illuminated")
+        XCTAssertFalse(lines.contains { $0.hasPrefix("dissipate") }, "nothing dissipated during the scroll: \(lines)")
+        let release = lines.first { $0.hasPrefix("release") }
+        XCTAssertNotNil(release, "the lift produced a release, not a cancellation: \(lines)")
+        XCTAssertTrue(release?.contains("ripple=true") == true, "the release ripples after a scroll: \(release ?? "none")")
+        XCTAssertTrue(release?.contains("didScroll=true") == true, "the engine saw the scroll: \(release ?? "none")")
+    }
+
     func testBaselineWithoutEffects() {
         let app = launch(mode: "off")
         checkTapTogglesLike(app, mode: "off")

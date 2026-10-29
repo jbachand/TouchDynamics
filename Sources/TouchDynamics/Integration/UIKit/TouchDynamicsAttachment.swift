@@ -100,7 +100,9 @@ public final class TouchDynamicsAttachment {
 
     private func wire() {
         engine.onCommand = { [weak self] command in
-            self?.presenter.handle(command)
+            guard let self else { return }
+            self.presenter.handle(command)
+            TouchDynamics.commandObserver?(command, self)
         }
         presenter.onRippleFinished = { [weak self] id in
             self?.engine.rippleDidFinish(id)
@@ -396,6 +398,11 @@ extension TouchDynamicsAttachment: TouchSurface {
 // MARK: - Public UIKit API
 
 public extension TouchDynamics {
+    /// Observes every ``EngineCommand`` emitted by every attachment, after the
+    /// attachment has handled it. For debugging and tests; `nil` by default.
+    @MainActor
+    static var commandObserver: ((EngineCommand, TouchDynamicsAttachment) -> Void)?
+
     /// Attaches touch effects to `view`.
     ///
     /// No subclassing is required and the view's own gesture recognizers,

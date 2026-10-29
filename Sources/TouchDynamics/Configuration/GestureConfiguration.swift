@@ -30,7 +30,8 @@ public enum CancellationBehavior: Sendable, Equatable {
 public enum ScrollTakeoverBehavior: Sendable, Equatable {
     /// Keep the effect alive: the illumination stays under the finger and the
     /// deformation holds while the content scrolls with it. Lifting the finger
-    /// then follows ``GestureConfiguration/releaseAfterScroll``. Default.
+    /// then follows ``GestureConfiguration/releaseAfterScroll`` (a ripple by
+    /// default). Default.
     case maintain
     /// A short fade and spring back; fingers landing during the scroll show
     /// nothing, like a native highlight.
@@ -81,7 +82,7 @@ public struct GestureConfiguration: Sendable, Equatable {
         dragBehavior: DragBehavior = .follow,
         releaseAfterDrag: ReleaseBehavior = .ripple,
         scrollTakeover: ScrollTakeoverBehavior = .maintain,
-        releaseAfterScroll: ReleaseBehavior = .dissipate,
+        releaseAfterScroll: ReleaseBehavior = .ripple,
         scrollDetectionDistance: CGFloat = 4,
         cancellation: CancellationBehavior = .dissipate,
         exitMargin: CGFloat = 40,
