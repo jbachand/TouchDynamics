@@ -9,7 +9,7 @@ URL, or add it to `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/<owner>/TouchDynamics.git", from: "1.0.0"),
+    .package(url: "https://github.com/jbachand/TouchDynamics.git", from: "1.0.0"),
 ],
 targets: [
     .target(name: "App", dependencies: ["TouchDynamics"]),
