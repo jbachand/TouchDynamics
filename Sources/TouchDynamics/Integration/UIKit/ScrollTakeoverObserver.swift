@@ -33,9 +33,12 @@ final class ScrollTakeoverObserver: NSObject {
         observed.removeAllObjects()
     }
 
-    /// Fallback check for scroll views that are already dragging.
-    var isAnyObservedScrollViewDragging: Bool {
-        observed.allObjects.contains { ($0.view as? UIScrollView)?.isDragging == true }
+    /// Fallback check: an observed scroll view is dragging or decelerating.
+    var isAnyObservedScrollViewMoving: Bool {
+        observed.allObjects.contains { pan in
+            guard let scrollView = pan.view as? UIScrollView else { return false }
+            return scrollView.isDragging || scrollView.isDecelerating
+        }
     }
 
     var observedCount: Int { observed.count }

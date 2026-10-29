@@ -46,6 +46,16 @@ public final class TouchDynamicsAttachment {
     private var longPressTask: Task<Void, Never>?
     private var settleTask: Task<Void, Never>?
     private var isDetached = false
+    /// Window-space position of a reference point captured at touch-down, used
+    /// to detect the surface scrolling under the finger.
+    private struct ScrollReference {
+        let view: UIView
+        let point: CGPoint
+        let origin: CGPoint
+        /// The reference sits inside our own deformation; subtract its drift.
+        let correctsForDeformation: Bool
+    }
+    private var scrollReference: ScrollReference?
 
     // MARK: Creation
 
@@ -202,9 +212,72 @@ public final class TouchDynamicsAttachment {
     private func fingersLifted() {
         guard engine.activeSessions.isEmpty else { return }
         scrollObserver.endObserving()
+        scrollReference = nil
+        // The pan's own end can arrive after our touch-up; a scroll cannot
+        // continue without a finger, so close it here.
+        if engine.isScrolling {
+            engine.scrollDidEnd()
+        }
         longPressTask?.cancel()
         longPressTask = nil
         scheduleSettleCheck()
+    }
+
+    /// Records where the surface sits on screen. Prefers a reference the
+    /// deformation transform cannot move: a view's `center` in its superview
+    /// (UIKit) or the content view of the nearest scroll view (SwiftUI).
+    private func captureScrollReference() {
+        guard let host else {
+            scrollReference = nil
+            return
+        }
+        let reference: (view: UIView, point: CGPoint, corrects: Bool)
+        switch mode {
+        case .uiKit:
+            if let target = view, let superview = target.superview {
+                reference = (superview, target.center, false)
+            } else {
+                reference = (host, .zero, true)
+            }
+        case .swiftUI:
+            if let content = Self.scrollContent(above: host) {
+                reference = (content, .zero, false)
+            } else {
+                reference = (host.superview?.superview ?? host, .zero, true)
+            }
+        }
+        scrollReference = ScrollReference(
+            view: reference.view,
+            point: reference.point,
+            origin: reference.view.convert(reference.point, to: nil),
+            correctsForDeformation: reference.corrects
+        )
+    }
+
+    /// The direct child of the nearest `UIScrollView` above `view`: it moves
+    /// with the scroll and sits outside any per-item transform.
+    static func scrollContent(above view: UIView) -> UIView? {
+        var child = view
+        var parent = view.superview
+        while let current = parent {
+            if current is UIScrollView { return child }
+            child = current
+            parent = current.superview
+        }
+        return nil
+    }
+
+    /// Whether the surface has moved on screen since touch-down, beyond what
+    /// our own deformation accounts for.
+    private var surfaceHasScrolled: Bool {
+        guard let reference = scrollReference else { return false }
+        let now = reference.view.convert(reference.point, to: nil)
+        var distance = hypot(now.x - reference.origin.x, now.y - reference.origin.y)
+        if reference.correctsForDeformation, let host {
+            let t = presenter.deformation.currentState.affineTransform(in: host.bounds, origin: .topLeft)
+            distance -= hypot(t.tx, t.ty)
+        }
+        return distance >= configuration.gesture.scrollDetectionDistance
     }
 
     // MARK: Helpers
@@ -278,9 +351,15 @@ extension TouchDynamicsAttachment: TouchSurface {
             scrollObserver.beginObserving(ancestorsOf: host)
             scrollObserver.onScrollBegan = { [weak self] in self?.engine.scrollDidBegin() }
             scrollObserver.onScrollEnded = { [weak self] in self?.engine.scrollDidEnd() }
+            captureScrollReference()
             engine.bounds = host.bounds
             settleTask?.cancel()
             settleTask = nil
+            // A finger that catches a moving list stops it; like a native
+            // highlight, it shows nothing.
+            if !engine.isScrolling, scrollObserver.isAnyObservedScrollViewMoving {
+                engine.scrollDidBegin()
+            }
         }
         for touch in touches {
             engine.handle(.began(id: TouchIdentifier(object: touch), location: location(of: touch, in: host), time: touch.timestamp))
@@ -290,7 +369,7 @@ extension TouchDynamicsAttachment: TouchSurface {
 
     func observedTouchesMoved(_ touches: Set<UITouch>, with event: UIEvent) {
         guard let host else { return }
-        if !engine.isScrolling, scrollObserver.isAnyObservedScrollViewDragging {
+        if !engine.isScrolling, scrollObserver.isAnyObservedScrollViewMoving || surfaceHasScrolled {
             engine.scrollDidBegin()
         }
         for touch in touches {

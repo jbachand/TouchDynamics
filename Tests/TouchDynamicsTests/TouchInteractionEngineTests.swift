@@ -152,6 +152,34 @@ final class TouchInteractionEngineTests: XCTestCase {
         XCTAssertFalse(engine.isScrolling)
     }
 
+    func testScrollStateClearsWhenNoFingersRemain() {
+        // Hold, scroll, lift. The pan's end notification never arrives because
+        // observation stopped at touch-up; the next finger must still light.
+        let (engine, rec) = makeEngine()
+        engine.handle(.began(id: .test(1), location: CGPoint(x: 50, y: 20), time: 0))
+        engine.scrollDidBegin(at: 0.8)
+        engine.handle(.moved(id: .test(1), location: CGPoint(x: 50, y: -200), time: 1.0))
+        engine.handle(.ended(id: .test(1), location: CGPoint(x: 50, y: -250), time: 1.2))
+        XCTAssertTrue(engine.sessions.isEmpty)
+        XCTAssertTrue(engine.isScrolling, "no scrollDidEnd was delivered")
+
+        engine.handle(.began(id: .test(2), location: CGPoint(x: 60, y: 20), time: 2))
+        XCTAssertEqual(rec.illuminates.count, 2, "a fresh finger after the scroll finger lifted illuminates")
+        XCTAssertEqual(engine.session(for: .test(2))?.phase, .pressing)
+        XCTAssertFalse(engine.isScrolling)
+        engine.handle(.ended(id: .test(2), location: CGPoint(x: 60, y: 20), time: 2.1))
+        XCTAssertEqual(rec.releases.count, 1)
+    }
+
+    func testSecondFingerDuringLiveScrollStaysDark() {
+        let (engine, rec) = makeEngine()
+        engine.handle(.began(id: .test(1), location: CGPoint(x: 50, y: 20), time: 0))
+        engine.scrollDidBegin(at: 0.5)
+        engine.handle(.began(id: .test(2), location: CGPoint(x: 90, y: 20), time: 0.6))
+        XCTAssertEqual(rec.illuminates.count, 1)
+        XCTAssertTrue(engine.isScrolling, "the first finger is still scrolling")
+    }
+
     func testScrollTakeoverCanSuppressImmediately() {
         var config = GestureConfiguration()
         config.scrollTakeover = .suppress

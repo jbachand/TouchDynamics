@@ -119,7 +119,7 @@ CommentContent().touchDynamics(config)
 
 **Observation, not recognition.** One gesture recognizer per `UIWindow` overrides `canPrevent`/`canBePrevented` to `false`, never cancels or delays touches, never leaves `.possible` while fingers are down, and decides per touch — in `shouldReceive` — whether a registered surface is under the finger (hit-view ancestry plus geometry; innermost wins). It is the same path for UIKit and SwiftUI, so feedback starts on the same frame the touch lands, even inside scroll views with `delaysContentTouches`.
 
-**Scroll arbitration.** At touch-down the attachment adds a target-action to the `panGestureRecognizer` of every ancestor `UIScrollView`. When a pan begins, the engine dissipates the effect and suppresses new fingers for the rest of the scroll, like a native highlight. Nothing about the scroll view changes.
+**Scroll arbitration.** At touch-down the attachment adds a target-action to the `panGestureRecognizer` of every ancestor `UIScrollView`. When a pan begins, the engine dissipates the effect and suppresses new fingers for the rest of the scroll, like a native highlight. The surface's own on-screen movement is watched as a second signal for containers that are not `UIScrollView`-backed, a finger that catches a moving list shows nothing, and the scroll is closed when the last finger lifts so a hold-then-scroll never leaves a surface dark. Nothing about the scroll view changes.
 
 **One set of equations.** `I(r) = A·exp(−r²/2σ²)`, `R(r,t) = B·e^(−λt)·exp(−(r−vt)²/2w²)` and `m·ẍ + c·ẋ + k·x = 0` live in public value types. Core Animation samples them into keyframes; Metal evaluates them per pixel; SwiftUI's `interpolatingSpring` and UIKit's `UISpringTimingParameters` get the same `(mass, stiffness, damping)`.
 

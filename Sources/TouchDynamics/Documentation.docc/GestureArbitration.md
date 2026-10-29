@@ -45,8 +45,20 @@ At touch-down the attachment adds a target-action to the
 included). When any pan enters `.began` the engine receives
 ``TouchInteractionEngine/scrollDidBegin(at:)``: active sessions dissipate and
 new fingers during the scroll show nothing, matching native highlight behavior.
-Targets are removed when the last finger lifts. As a fallback the attachment
-also checks `isDragging` on each move.
+
+Three more signals cover the gaps:
+
+- **Surface movement.** The attachment records a window-space reference at
+  touch-down (the scroll view's content view in SwiftUI, the view's `center`
+  in UIKit) and treats movement beyond
+  ``GestureConfiguration/scrollDetectionDistance`` as a scroll. This works for
+  containers that are not `UIScrollView`-backed.
+- **Catching a moving list.** A finger landing while an ancestor scroll view
+  is dragging or decelerating shows nothing, like a native highlight.
+- **Scroll end at touch-up.** A scroll cannot continue without a finger, so
+  when the last finger lifts the attachment closes the scroll itself; it does
+  not wait for the pan's own end, which can arrive after the touch-up. The
+  engine applies the same rule when a new finger lands with no sessions left.
 
 ## State machine
 

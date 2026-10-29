@@ -43,6 +43,11 @@ public struct GestureConfiguration: Sendable, Equatable {
     public var releaseAfterDrag: ReleaseBehavior
     /// Behavior when an ancestor scroll view starts scrolling.
     public var scrollTakeover: CancellationBehavior
+    /// How far the surface itself may move on screen while a finger is down
+    /// before the movement is treated as a scroll. This catches containers
+    /// that are not `UIScrollView`-backed; `UIScrollView` pans are observed
+    /// directly as well.
+    public var scrollDetectionDistance: CGFloat
     /// Behavior when the system cancels the touch.
     public var cancellation: CancellationBehavior
     /// Distance outside the bounds the finger may travel while still counting
@@ -59,6 +64,7 @@ public struct GestureConfiguration: Sendable, Equatable {
         dragBehavior: DragBehavior = .follow,
         releaseAfterDrag: ReleaseBehavior = .ripple,
         scrollTakeover: CancellationBehavior = .dissipate,
+        scrollDetectionDistance: CGFloat = 4,
         cancellation: CancellationBehavior = .dissipate,
         exitMargin: CGFloat = 40,
         maximumConcurrentTouches: Int = 5,
@@ -69,6 +75,7 @@ public struct GestureConfiguration: Sendable, Equatable {
         self.dragBehavior = dragBehavior
         self.releaseAfterDrag = releaseAfterDrag
         self.scrollTakeover = scrollTakeover
+        self.scrollDetectionDistance = max(0, scrollDetectionDistance)
         self.cancellation = cancellation
         self.exitMargin = max(0, exitMargin)
         self.maximumConcurrentTouches = max(1, maximumConcurrentTouches)

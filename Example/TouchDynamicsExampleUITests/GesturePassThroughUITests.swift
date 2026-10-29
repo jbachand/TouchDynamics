@@ -45,6 +45,91 @@ final class GesturePassThroughUITests: XCTestCase {
         return changed
     }
 
+    // MARK: Hold then scroll
+
+    /// Mean luminance (0...255) of `rect` (screen points) in `image`.
+    static func meanLuminance(of image: UIImage, in rect: CGRect, pointsWidth: CGFloat) -> Double {
+        guard let cg = image.cgImage, pointsWidth > 0 else { return 0 }
+        // Screenshots come back in pixels with a UIImage scale of 1; derive the
+        // pixel density from the app's point width instead of the metadata.
+        let scale = CGFloat(cg.width) / pointsWidth
+        let pixelRect = CGRect(x: rect.minX * scale, y: rect.minY * scale, width: rect.width * scale, height: rect.height * scale).integral
+        guard let cropped = cg.cropping(to: pixelRect) else { return 0 }
+        let w = 32, h = 32
+        var data = [UInt8](repeating: 0, count: w * h * 4)
+        guard let ctx = CGContext(data: &data, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                                  space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return 0 }
+        ctx.interpolationQuality = .medium
+        ctx.draw(cropped, in: CGRect(x: 0, y: 0, width: w, height: h))
+        var sum = 0.0
+        for i in stride(from: 0, to: data.count, by: 4) {
+            sum += 0.2126 * Double(data[i]) + 0.7152 * Double(data[i + 1]) + 0.0722 * Double(data[i + 2])
+        }
+        return sum / Double(w * h)
+    }
+
+    private func luminanceNow(_ rect: CGRect, pointsWidth: CGFloat) -> Double {
+        Self.meanLuminance(of: XCUIScreen.main.screenshot().image, in: rect, pointsWidth: pointsWidth)
+    }
+
+    /// Holds `point` and samples `rect` mid-hold from a background thread.
+    private func luminanceDuringHold(at point: XCUICoordinate, rect: CGRect, pointsWidth: CGFloat, name: String) -> Double {
+        var sampled = 0.0
+        let done = DispatchSemaphore(value: 0)
+        let sampler = Thread {
+            Thread.sleep(forTimeInterval: 0.9)
+            let shot = XCUIScreen.main.screenshot()
+            sampled = Self.meanLuminance(of: shot.image, in: rect, pointsWidth: pointsWidth)
+            try? shot.pngRepresentation.write(to: URL(fileURLWithPath: "/tmp/td-shot-\(name).png"))
+            done.signal()
+        }
+        sampler.start()
+        point.press(forDuration: 1.6)
+        done.wait()
+        return sampled
+    }
+
+    func testHoldThenScrollLeavesTheRowResponsive() {
+        let app = launch(mode: "full")
+        let firstComment = app.staticTexts["This is exactly the kind of micro-interaction that makes an app feel alive."].firstMatch
+        XCTAssertTrue(firstComment.waitForExistence(timeout: 15))
+        Thread.sleep(forTimeInterval: 0.5)
+
+        // Baseline: a hold lights the row (darker in light appearance, brighter in dark).
+        let width = app.frame.width
+        var rect = firstComment.frame
+        let point = firstComment.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.5))
+        let rest = luminanceNow(rect, pointsWidth: width)
+        let lit = luminanceDuringHold(at: point, rect: rect, pointsWidth: width, name: "hold-before")
+        XCTAssertGreaterThan(abs(lit - rest), 4, "a hold illuminates the row (rest \(rest), lit \(lit))")
+        Thread.sleep(forTimeInterval: 0.8)
+
+        // Hold, then let the page scroll under the finger.
+        let dragEnd = point.withOffset(CGVector(dx: 0, dy: -260))
+        point.press(forDuration: 0.9, thenDragTo: dragEnd)
+        Thread.sleep(forTimeInterval: 0.6)
+        XCTAssertLessThan(firstComment.frame.minY, rect.minY - 120, "the list scrolled during the hold")
+        snapshot("after-hold-scroll")
+
+        // Scroll back to the top.
+        for _ in 0..<4 where !(firstComment.exists && firstComment.frame.minY >= rect.minY - 2) {
+            let mid = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45))
+            mid.press(forDuration: 0.1, thenDragTo: mid.withOffset(CGVector(dx: 0, dy: 320)))
+            Thread.sleep(forTimeInterval: 1.0)
+        }
+        XCTAssertTrue(firstComment.isHittable, "first row is back on screen")
+        rect = firstComment.frame
+        try? "before scroll-back rect \(rect)\n".write(toFile: "/tmp/td-result-holdscroll-rect.txt", atomically: true, encoding: .utf8)
+
+        // The same row must light again, and a tap must still work.
+        let restAfter = luminanceNow(rect, pointsWidth: width)
+        let litAfter = luminanceDuringHold(at: firstComment.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.5)), rect: rect, pointsWidth: width, name: "hold-after")
+        try? "rest=\(rest) lit=\(lit) restAfter=\(restAfter) litAfter=\(litAfter) width=\(width)\n".write(toFile: "/tmp/td-result-holdscroll.txt", atomically: true, encoding: .utf8)
+        XCTAssertGreaterThan(abs(litAfter - restAfter), 4, "after a hold-then-scroll the row still illuminates (rest \(restAfter), lit \(litAfter))")
+        Thread.sleep(forTimeInterval: 0.8)
+        checkTapTogglesLike(app, mode: "holdscroll")
+    }
+
     func testBaselineWithoutEffects() {
         let app = launch(mode: "off")
         checkTapTogglesLike(app, mode: "off")

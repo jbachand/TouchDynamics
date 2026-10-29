@@ -365,6 +365,54 @@ final class UIKitIntegrationTests: XCTestCase {
         XCTAssertEqual(UIColor.white.cgColor.scaledAlpha(0.25).alpha, 0.25, accuracy: 1e-9)
     }
 
+    func testScrollContentIsTheScrollViewsChild() {
+        let scrollView = UIScrollView(frame: CGRect(x: 0, y: 0, width: 300, height: 600))
+        let content = UIView(frame: CGRect(x: 0, y: 0, width: 300, height: 2000))
+        let row = UIView(frame: CGRect(x: 0, y: 100, width: 300, height: 44))
+        let label = UILabel(frame: CGRect(x: 10, y: 10, width: 100, height: 20))
+        scrollView.addSubview(content)
+        content.addSubview(row)
+        row.addSubview(label)
+        XCTAssertTrue(TouchDynamicsAttachment.scrollContent(above: label) === content)
+        XCTAssertTrue(TouchDynamicsAttachment.scrollContent(above: row) === content)
+        XCTAssertNil(TouchDynamicsAttachment.scrollContent(above: UIView()))
+        // The content's window-space origin moves with the scroll offset.
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        window.addSubview(scrollView)
+        let before = content.convert(CGPoint.zero, to: nil)
+        scrollView.contentOffset = CGPoint(x: 0, y: 120)
+        let after = content.convert(CGPoint.zero, to: nil)
+        XCTAssertEqual(before.y - after.y, 120, accuracy: 1e-9)
+        // A transform on the row does not move the content reference.
+        row.transform = CGAffineTransform(scaleX: 0.9, y: 0.9)
+        XCTAssertEqual(content.convert(CGPoint.zero, to: nil), after)
+    }
+
+    func testSwiftUIScrollViewAncestryIsReported() {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        let hosting = UIHostingController(rootView: ScrollView { LazyVStack { ForEach(0..<30) { i in Text("Row \(i)").padding().touchDynamics() } } })
+        window.rootViewController = hosting
+        window.isHidden = false
+        hosting.view.frame = window.bounds
+        hosting.view.layoutIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+        hosting.view.layoutIfNeeded()
+        guard let host = findHost(in: hosting.view) else { return XCTFail("no host") }
+        var chain: [String] = []
+        var scrollViews = 0
+        var v: UIView? = host
+        while let current = v {
+            chain.append(String(describing: type(of: current)))
+            if current is UIScrollView { scrollViews += 1 }
+            v = current.superview
+        }
+        print("TD-SCROLLCHAIN uiScrollViews=\(scrollViews) chain=\(chain.joined(separator: " > "))")
+        let observer = ScrollTakeoverObserver()
+        observer.beginObserving(ancestorsOf: host)
+        print("TD-SCROLLCHAIN observedPans=\(observer.observedCount)")
+        observer.endObserving()
+    }
+
     private func findHost(in view: UIView) -> EffectHostView? {
         if let host = view as? EffectHostView { return host }
         for sub in view.subviews {
@@ -401,6 +449,54 @@ final class SwiftUIHitTestingTests: XCTestCase {
         XCTAssertFalse(hit === host, "the effect host must not be the hit view")
         XCTAssertFalse(hit === host.superview, "SwiftUI's wrapper around the host must not swallow touches")
         XCTAssertTrue(hit === hosting.view || hit?.isDescendant(of: hosting.view) == true)
+    }
+
+    func testScrollContentIsTheScrollViewsChild() {
+        let scrollView = UIScrollView(frame: CGRect(x: 0, y: 0, width: 300, height: 600))
+        let content = UIView(frame: CGRect(x: 0, y: 0, width: 300, height: 2000))
+        let row = UIView(frame: CGRect(x: 0, y: 100, width: 300, height: 44))
+        let label = UILabel(frame: CGRect(x: 10, y: 10, width: 100, height: 20))
+        scrollView.addSubview(content)
+        content.addSubview(row)
+        row.addSubview(label)
+        XCTAssertTrue(TouchDynamicsAttachment.scrollContent(above: label) === content)
+        XCTAssertTrue(TouchDynamicsAttachment.scrollContent(above: row) === content)
+        XCTAssertNil(TouchDynamicsAttachment.scrollContent(above: UIView()))
+        // The content's window-space origin moves with the scroll offset.
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        window.addSubview(scrollView)
+        let before = content.convert(CGPoint.zero, to: nil)
+        scrollView.contentOffset = CGPoint(x: 0, y: 120)
+        let after = content.convert(CGPoint.zero, to: nil)
+        XCTAssertEqual(before.y - after.y, 120, accuracy: 1e-9)
+        // A transform on the row does not move the content reference.
+        row.transform = CGAffineTransform(scaleX: 0.9, y: 0.9)
+        XCTAssertEqual(content.convert(CGPoint.zero, to: nil), after)
+    }
+
+    func testSwiftUIScrollViewAncestryIsReported() {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        let hosting = UIHostingController(rootView: ScrollView { LazyVStack { ForEach(0..<30) { i in Text("Row \(i)").padding().touchDynamics() } } })
+        window.rootViewController = hosting
+        window.isHidden = false
+        hosting.view.frame = window.bounds
+        hosting.view.layoutIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+        hosting.view.layoutIfNeeded()
+        guard let host = findHost(in: hosting.view) else { return XCTFail("no host") }
+        var chain: [String] = []
+        var scrollViews = 0
+        var v: UIView? = host
+        while let current = v {
+            chain.append(String(describing: type(of: current)))
+            if current is UIScrollView { scrollViews += 1 }
+            v = current.superview
+        }
+        print("TD-SCROLLCHAIN uiScrollViews=\(scrollViews) chain=\(chain.joined(separator: " > "))")
+        let observer = ScrollTakeoverObserver()
+        observer.beginObserving(ancestorsOf: host)
+        print("TD-SCROLLCHAIN observedPans=\(observer.observedCount)")
+        observer.endObserving()
     }
 
     private func findHost(in view: UIView) -> EffectHostView? {

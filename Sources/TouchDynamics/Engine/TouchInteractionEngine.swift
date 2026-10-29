@@ -153,6 +153,11 @@ public final class TouchInteractionEngine {
         guard storage[id] == nil else { return }
         let activeCount = storage.values.reduce(0) { $0 + ($1.phase.isActive ? 1 : 0) }
         guard activeCount < configuration.maximumConcurrentTouches else { return }
+        if isScrolling, activeCount == 0 {
+            // A scroll needs a finger. With none tracked, the end notification
+            // was missed (it can race the last touch-up); do not stay dark.
+            isScrolling = false
+        }
 
         var session = TouchSession(
             id: id,

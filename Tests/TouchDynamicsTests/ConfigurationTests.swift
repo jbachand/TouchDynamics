@@ -50,8 +50,10 @@ final class ConfigurationTests: XCTestCase {
         XCTAssertEqual(el.stiffness, 1)
         XCTAssertEqual(el.mass, 0.01)
 
-        let gesture = GestureConfiguration(tapSlop: -1, longPressDuration: 0, maximumConcurrentTouches: 0)
+        let gesture = GestureConfiguration(tapSlop: -1, longPressDuration: 0, scrollDetectionDistance: -5, maximumConcurrentTouches: 0)
         XCTAssertEqual(gesture.tapSlop, 0)
+        XCTAssertEqual(gesture.scrollDetectionDistance, 0)
+        XCTAssertEqual(GestureConfiguration().scrollDetectionDistance, 4)
         XCTAssertEqual(gesture.longPressDuration, 0.05)
         XCTAssertEqual(gesture.maximumConcurrentTouches, 1)
 
@@ -66,7 +68,7 @@ final class ConfigurationTests: XCTestCase {
     }
 
     func testVersion() {
-        XCTAssertEqual(TouchDynamics.version, "1.0.0")
+        XCTAssertEqual(TouchDynamics.version, "1.0.1")
     }
 
     func testTouchIdentifierFromObjectIsStable() {

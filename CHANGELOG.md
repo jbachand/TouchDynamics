@@ -4,6 +4,22 @@ All notable changes to TouchDynamics are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.1] - 2026-10-28
+
+### Fixed
+- A hold that turned into a scroll could leave the surface dark: the engine's
+  scrolling flag stayed set when the pan's end arrived after the touch-up.
+  The attachment now closes the scroll when the last finger lifts, and the
+  engine clears a stale flag when a new finger lands with no sessions left.
+
+### Added
+- Geometric scroll detection (`GestureConfiguration.scrollDetectionDistance`)
+  based on the surface's own movement on screen, for containers that are not
+  `UIScrollView`-backed.
+- A finger that lands on a dragging or decelerating scroll view shows no
+  highlight, matching native behavior.
+- Hold-then-scroll UI regression test with luminance sampling.
+
 ## [1.0.0] - 2026-10-28
 
 ### Added
