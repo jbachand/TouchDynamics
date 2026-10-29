@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-ios:
+    name: Test (iOS Simulator, Xcode ${{ matrix.xcode }})
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        xcode: ["16.4"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: sudo xcode-select -s "/Applications/Xcode_${{ matrix.xcode }}.app"
+      - name: Build and test
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -scheme TouchDynamics \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -derivedDataPath .derived \
+            | xcbeautify --renderer github-actions || xcodebuild test -scheme TouchDynamics -destination 'platform=iOS Simulator,name=iPhone 16' -derivedDataPath .derived
+      - name: Swift 6 language mode check
+        run: |
+          xcodebuild build \
+            -scheme TouchDynamics \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath .derived-swift6 \
+            OTHER_SWIFT_FLAGS='-swift-version 6'
+
+  build-core-macos:
+    name: Build platform-neutral core (macOS host)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift build
+
+  build-example:
+    name: Build example app
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: |
+          xcodebuild build \
+            -project Example/TouchDynamicsExample.xcodeproj \
+            -scheme TouchDynamicsExample \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath Example/.derived \
+            CODE_SIGNING_ALLOWED=NO

@@ -1,0 +1,40 @@
+name: TouchDynamicsExample
+options:
+  bundleIdPrefix: com.n2op
+  deploymentTarget:
+    iOS: "16.0"
+  xcodeVersion: "16.0"
+  createIntermediateGroups: true
+packages:
+  TouchDynamics:
+    path: ..
+targets:
+  TouchDynamicsExample:
+    type: application
+    platform: iOS
+    sources:
+      - path: TouchDynamicsExample
+    dependencies:
+      - package: TouchDynamics
+    info:
+      path: TouchDynamicsExample/Info.plist
+      properties:
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        CFBundleDisplayName: TouchDynamics
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.n2op.TouchDynamicsExample
+        SWIFT_VERSION: "5.9"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_STRICT_CONCURRENCY: complete
+        ENABLE_PREVIEWS: YES
