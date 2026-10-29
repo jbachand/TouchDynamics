@@ -141,7 +141,7 @@ The effect surface is never an accessibility element and never hit-tests.
 
 `Example/TouchDynamicsExample.xcodeproj` (regenerate with `xcodegen` from `Example/project.yml`) demonstrates comments, buttons, cards, UIKit table/collection cells, sheets, navigation pushes, nested scrolling, a container-level surface, and a Tuning tab that edits every configuration value against a live preview.
 
-The `TouchDynamicsExampleUITests` target drives the app with real touches and asserts that every native gesture still works with effects on. Launch arguments `-td-mode off|silent|noelastic|full` select a baseline without the modifier, the observer with silent effects, effects without deformation, or everything.
+The demo starts on the `.subtle` preset; the Tuning tab switches presets and edits every value. The `TouchDynamicsExampleUITests` target drives the app with real touches and asserts that every native gesture still works with effects on. Launch arguments `-td-preset <subtle|fluid|elastic|material|rippleOnly>` pick a preset, `-td-mode off|silent|noelastic|full` select a baseline without the modifier, the observer with silent effects, effects without deformation, or everything, and `-td-log <path>` records every engine command.
 
 ## Acceptance criteria
 

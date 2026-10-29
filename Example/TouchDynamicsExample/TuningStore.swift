@@ -19,16 +19,20 @@ final class TuningStore: ObservableObject {
         }
     }
 
-    @Published var preset: Preset = .fluid {
+    @Published var preset: Preset = .subtle {
         didSet { configuration = preset.configuration }
     }
-    @Published var configuration: TouchDynamicsConfiguration = .fluid
+    @Published var configuration: TouchDynamicsConfiguration = .subtle
     /// `false` renders the demos without the modifier (UI-test baseline).
     @Published var effectsEnabled = true
 
     init() {
-        // UI-test rig: `-td-mode off|silent|noelastic|full`, `-td-log <path>`.
+        // UI-test rig: `-td-preset <name>`, `-td-mode off|silent|noelastic|full`, `-td-log <path>`.
         let args = CommandLine.arguments
+        if let i = args.firstIndex(of: "-td-preset"), i + 1 < args.count, let chosen = Preset(rawValue: args[i + 1]) {
+            preset = chosen
+            configuration = chosen.configuration
+        }
         if let i = args.firstIndex(of: "-td-log"), i + 1 < args.count {
             let path = args[i + 1]
             FileManager.default.createFile(atPath: path, contents: Data())

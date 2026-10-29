@@ -17,9 +17,10 @@ final class GesturePassThroughUITests: XCTestCase {
         try? png.write(to: URL(fileURLWithPath: "/tmp/td-shot-\(name).png"))
     }
 
+    /// The tests measure the `.fluid` preset regardless of the demo's default.
     private func launch(mode: String) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-td-mode", mode]
+        app.launchArguments = ["-td-preset", "fluid", "-td-mode", mode]
         app.launch()
         return app
     }
@@ -134,7 +135,7 @@ final class GesturePassThroughUITests: XCTestCase {
         let logPath = "/tmp/td-commands.txt"
         try? FileManager.default.removeItem(atPath: logPath)
         let app = XCUIApplication()
-        app.launchArguments = ["-td-mode", "full", "-td-log", logPath]
+        app.launchArguments = ["-td-preset", "fluid", "-td-mode", "full", "-td-log", logPath]
         app.launch()
         let firstComment = app.staticTexts["This is exactly the kind of micro-interaction that makes an app feel alive."].firstMatch
         XCTAssertTrue(firstComment.waitForExistence(timeout: 15))
