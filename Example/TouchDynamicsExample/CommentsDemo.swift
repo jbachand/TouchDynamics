@@ -15,7 +15,7 @@ struct CommentsDemo: View {
                         CommentRow(comment: comment, isLiked: liked.contains(comment.id)) {
                             toggle(comment)
                         }
-                        .touchDynamics(tuning.configuration)
+                        .modifier(ConditionalTouchDynamics(enabled: tuning.effectsEnabled, configuration: tuning.configuration))
                         .onTapGesture { toggle(comment) }
                     }
                 }
@@ -50,6 +50,7 @@ struct CommentRow: View {
                 HStack(spacing: 16) {
                     Text("Reply").font(.caption.weight(.medium)).foregroundStyle(.secondary)
                     Text("\(comment.likes + (isLiked ? 1 : 0)) likes").font(.caption).foregroundStyle(.secondary)
+                        .accessibilityIdentifier("likes")
                 }
                 .padding(.top, 2)
             }
@@ -65,5 +66,19 @@ struct CommentRow: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .contentShape(Rectangle())
+    }
+}
+
+/// Applies `touchDynamics` only when enabled (UI-test baseline support).
+struct ConditionalTouchDynamics: ViewModifier {
+    let enabled: Bool
+    let configuration: TouchDynamicsConfiguration
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content.touchDynamics(configuration)
+        } else {
+            content
+        }
     }
 }

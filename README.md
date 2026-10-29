@@ -141,17 +141,19 @@ The effect surface is never an accessibility element and never hit-tests.
 
 `Example/TouchDynamicsExample.xcodeproj` (regenerate with `xcodegen` from `Example/project.yml`) demonstrates comments, buttons, cards, UIKit table/collection cells, sheets, navigation pushes, nested scrolling, a container-level surface, and a Tuning tab that edits every configuration value against a live preview.
 
+The `TouchDynamicsExampleUITests` target drives the app with real touches and asserts that every native gesture still works with effects on. Launch arguments `-td-mode off|silent|noelastic|full` select a baseline without the modifier, the observer with silent effects, effects without deformation, or everything.
+
 ## Acceptance criteria
 
 | Criterion | Status |
 | --- | --- |
-| One-line SwiftUI integration works without additional setup | `View.touchDynamics()`; covered by `testSwiftUIModifierInstallsASurface` |
+| One-line SwiftUI integration works without additional setup | `View.touchDynamics()`; covered by `testSwiftUIModifierInstallsASurface` and the example app's UI tests |
 | UIKit attachment requires no view subclassing | `TouchDynamics.attach(to:)`; covered by `UIKitIntegrationTests` |
 | Ripple originates at the actual touch coordinate | `testEngineCommandsDriveCoreAnimationLayersAndResetClearsThem` asserts layer positions |
 | Illumination responds during touch-down | `.illuminate` emitted synchronously on `began`; same-frame delivery via the window observer |
 | Release ripple expands and fades smoothly | `RippleWaveTests`: monotonic front, 1→0 envelope, bounded intensity |
 | Elastic deformation springs back without layout changes | `DeformationTests`; transform/GeometryEffect only |
-| Native scrolling and navigation gestures remain functional | Non-preventing observer; `testWindowObserverIsSharedAndNonExclusive`; scroll takeover tests |
+| Native scrolling and navigation gestures remain functional | Non-preventing observer; `testWindowObserverIsSharedAndNonExclusive`; scroll takeover tests; `GesturePassThroughUITests` drives real touches on the simulator with effects on: tap, scroll, SwiftUI button, `UIButton` event, table scroll and cell taps, push, interactive pop, sheet |
 | Rapid repeated taps and cell reuse leave no stale effects | `testRapidRepeatedTapsAreBounded`, `testLeavingTheWindowResetsEffects` |
 | Reduce Motion and VoiceOver are supported | `ResolvedEffectAppearanceTests`, `testReduceMotionSkipsDeformation` |
 | Performance meets measured device-specific budgets | Architecture is compositor-driven with zero idle cost; **device measurements are still to be taken** (see Status) |
@@ -160,7 +162,7 @@ The effect surface is never an accessibility element and never hit-tests.
 
 ## Status and roadmap
 
-This is the v1.0 implementation of the PRD, verified by unit and integration tests on the iOS Simulator. Two things are explicitly still open:
+This is the v1.0 implementation of the PRD, verified on the iOS Simulator by 86 unit/integration tests and 4 UI tests that exercise the real touch path. Two things are explicitly still open:
 
 - **Device measurement.** Frame-rate and onset budgets must be confirmed on hardware with Instruments, including the oldest supported devices. The architecture is built for it (no display link in the default renderer, bounded resources), but the numbers have not been taken yet.
 - **Shader-based displacement.** `DeformationMode.displacement` is accepted and renders as `anchoredScale` on every renderer in v1.0. Content-texture displacement is reserved for the Metal renderer in a later release.

@@ -23,6 +23,27 @@ final class TuningStore: ObservableObject {
         didSet { configuration = preset.configuration }
     }
     @Published var configuration: TouchDynamicsConfiguration = .fluid
+    /// `false` renders the demos without the modifier (UI-test baseline).
+    @Published var effectsEnabled = true
+
+    init() {
+        // UI-test rig: `-td-mode off|silent|noelastic|full`.
+        let args = CommandLine.arguments
+        if let i = args.firstIndex(of: "-td-mode"), i + 1 < args.count {
+            switch args[i + 1] {
+            case "off":
+                effectsEnabled = false
+            case "silent":
+                configuration.illumination.isEnabled = false
+                configuration.ripple.isEnabled = false
+                configuration.elasticity.isEnabled = false
+            case "noelastic":
+                configuration.elasticity.isEnabled = false
+            default:
+                break
+            }
+        }
+    }
 
     var illuminationIntensity: Binding<Double> {
         Binding(

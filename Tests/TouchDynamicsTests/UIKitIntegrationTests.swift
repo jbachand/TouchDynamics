@@ -374,3 +374,41 @@ final class UIKitIntegrationTests: XCTestCase {
     }
 }
 #endif
+
+#if canImport(UIKit)
+@MainActor
+final class SwiftUIHitTestingTests: XCTestCase {
+    func testSurfaceNeverBecomesTheHitView() {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        let hosting = UIHostingController(rootView: Text("Comment").padding(40).touchDynamics())
+        window.rootViewController = hosting
+        window.isHidden = false
+        hosting.view.frame = window.bounds
+        hosting.view.layoutIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        hosting.view.layoutIfNeeded()
+
+        guard let host = findHost(in: hosting.view) else { return XCTFail("no host") }
+        let center = host.convert(CGPoint(x: host.bounds.midX, y: host.bounds.midY), to: window)
+        let hit = window.hitTest(center, with: nil)
+        var chain: [String] = []
+        var v: UIView? = hit
+        while let current = v {
+            chain.append(String(describing: type(of: current)))
+            v = current.superview
+        }
+        print("TD-HITTEST hit=\(String(describing: hit.map { type(of: $0) })) chain=\(chain.joined(separator: " > ")) hostSuperview=\(String(describing: host.superview.map { type(of: $0) })) superInteractive=\(host.superview?.isUserInteractionEnabled ?? false)")
+        XCTAssertFalse(hit === host, "the effect host must not be the hit view")
+        XCTAssertFalse(hit === host.superview, "SwiftUI's wrapper around the host must not swallow touches")
+        XCTAssertTrue(hit === hosting.view || hit?.isDescendant(of: hosting.view) == true)
+    }
+
+    private func findHost(in view: UIView) -> EffectHostView? {
+        if let host = view as? EffectHostView { return host }
+        for sub in view.subviews {
+            if let found = findHost(in: sub) { return found }
+        }
+        return nil
+    }
+}
+#endif

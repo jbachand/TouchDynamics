@@ -38,3 +38,29 @@ targets:
         CODE_SIGN_STYLE: Automatic
         SWIFT_STRICT_CONCURRENCY: complete
         ENABLE_PREVIEWS: YES
+  TouchDynamicsExampleUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: TouchDynamicsExampleUITests
+    dependencies:
+      - target: TouchDynamicsExample
+    info:
+      path: TouchDynamicsExampleUITests/Info.plist
+    settings:
+      base:
+        TEST_TARGET_NAME: TouchDynamicsExample
+        PRODUCT_BUNDLE_IDENTIFIER: com.n2op.TouchDynamicsExampleUITests
+        SWIFT_VERSION: "5.9"
+schemes:
+  TouchDynamicsExample:
+    build:
+      targets:
+        TouchDynamicsExample: all
+        TouchDynamicsExampleUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - TouchDynamicsExampleUITests

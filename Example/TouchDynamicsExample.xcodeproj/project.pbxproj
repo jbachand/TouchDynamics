@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		0A13766DC3B8DED1362434FD /* TouchDynamics in Frameworks */ = {isa = PBXBuildFile; productRef = 938A839D9DA71C8D6ECA2EB8 /* TouchDynamics */; };
+		0F6B1A7D853BAE22753BDE0D /* GesturePassThroughUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C892666704FFCC8FF7E286C /* GesturePassThroughUITests.swift */; };
 		14ABAB7F7B39251841F2EBBC /* TuningStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81C83442F97DC6C9C591B2BF /* TuningStore.swift */; };
 		57F46AFC3A59B5F790C6F0D5 /* TuningDemo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21D789DC2B5DE81D383D02AA /* TuningDemo.swift */; };
 		655972FDBCE9285751CDB8F9 /* ContainersDemo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55C8C15DDF8038CF725026E8 /* ContainersDemo.swift */; };
@@ -17,15 +18,28 @@
 		B85B5AAE578D15F2A352653D /* ControlsDemo.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEA88D012DDF89232AA73AC7 /* ControlsDemo.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		26DB309BB2350A887E367623 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 79CD5D15C6A4607120EC9A5B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3C1FE78275BCF414E441B4D2;
+			remoteInfo = TouchDynamicsExample;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		119981F79E72D1A790FCD152 /* TouchDynamics */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TouchDynamics; path = ..; sourceTree = SOURCE_ROOT; };
+		1F71EBD8E3DEB55019BC8228 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		21D789DC2B5DE81D383D02AA /* TuningDemo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TuningDemo.swift; sourceTree = "<group>"; };
 		3105139D60EE1141A846B0B9 /* TouchDynamicsExampleApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TouchDynamicsExampleApp.swift; sourceTree = "<group>"; };
 		440916E64E64245FA9834144 /* TouchDynamicsExample.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TouchDynamicsExample.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		55C8C15DDF8038CF725026E8 /* ContainersDemo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainersDemo.swift; sourceTree = "<group>"; };
+		5D6EFE44DBD4927B864D48E3 /* TouchDynamicsExampleUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TouchDynamicsExampleUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5FD23B634BD9304A90E413A9 /* UIKitDemo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIKitDemo.swift; sourceTree = "<group>"; };
 		6C73D0E71FDA32D70C40DA59 /* CommentsDemo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommentsDemo.swift; sourceTree = "<group>"; };
 		81C83442F97DC6C9C591B2BF /* TuningStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TuningStore.swift; sourceTree = "<group>"; };
+		8C892666704FFCC8FF7E286C /* GesturePassThroughUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GesturePassThroughUITests.swift; sourceTree = "<group>"; };
 		B51FA585B33B3EE513297137 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		CEA88D012DDF89232AA73AC7 /* ControlsDemo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControlsDemo.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -46,6 +60,7 @@
 			isa = PBXGroup;
 			children = (
 				440916E64E64245FA9834144 /* TouchDynamicsExample.app */,
+				5D6EFE44DBD4927B864D48E3 /* TouchDynamicsExampleUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -56,6 +71,15 @@
 				119981F79E72D1A790FCD152 /* TouchDynamics */,
 			);
 			name = Packages;
+			sourceTree = "<group>";
+		};
+		AADCA40D77947F1362492270 /* TouchDynamicsExampleUITests */ = {
+			isa = PBXGroup;
+			children = (
+				8C892666704FFCC8FF7E286C /* GesturePassThroughUITests.swift */,
+				1F71EBD8E3DEB55019BC8228 /* Info.plist */,
+			);
+			path = TouchDynamicsExampleUITests;
 			sourceTree = "<group>";
 		};
 		C885C9CA6C06F1A0B99BD55E /* TouchDynamicsExample */ = {
@@ -78,6 +102,7 @@
 			children = (
 				46253CE1ADF2D4CBF3DEA702 /* Packages */,
 				C885C9CA6C06F1A0B99BD55E /* TouchDynamicsExample */,
+				AADCA40D77947F1362492270 /* TouchDynamicsExampleUITests */,
 				0025853BD5F33D2B44E7B020 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -104,6 +129,24 @@
 			productReference = 440916E64E64245FA9834144 /* TouchDynamicsExample.app */;
 			productType = "com.apple.product-type.application";
 		};
+		D6C4B69F5F787843567778CC /* TouchDynamicsExampleUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8CD3D88A866E24FC642D4A2C /* Build configuration list for PBXNativeTarget "TouchDynamicsExampleUITests" */;
+			buildPhases = (
+				AEFFA3664CB84554BF72374B /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C593798CEBFEEBCED829A16C /* PBXTargetDependency */,
+			);
+			name = TouchDynamicsExampleUITests;
+			packageProductDependencies = (
+			);
+			productName = TouchDynamicsExampleUITests;
+			productReference = 5D6EFE44DBD4927B864D48E3 /* TouchDynamicsExampleUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -115,6 +158,9 @@
 				TargetAttributes = {
 					3C1FE78275BCF414E441B4D2 = {
 						ProvisioningStyle = Automatic;
+					};
+					D6C4B69F5F787843567778CC = {
+						TestTargetID = 3C1FE78275BCF414E441B4D2;
 					};
 				};
 			};
@@ -136,11 +182,20 @@
 			projectRoot = "";
 			targets = (
 				3C1FE78275BCF414E441B4D2 /* TouchDynamicsExample */,
+				D6C4B69F5F787843567778CC /* TouchDynamicsExampleUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXSourcesBuildPhase section */
+		AEFFA3664CB84554BF72374B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0F6B1A7D853BAE22753BDE0D /* GesturePassThroughUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F2570253954FAE8C774D602F /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -157,7 +212,33 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		C593798CEBFEEBCED829A16C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3C1FE78275BCF414E441B4D2 /* TouchDynamicsExample */;
+			targetProxy = 26DB309BB2350A887E367623 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		087857A2E9AE03FCF5F755E5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				INFOPLIST_FILE = TouchDynamicsExampleUITests/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.n2op.TouchDynamicsExampleUITests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = TouchDynamicsExample;
+			};
+			name = Release;
+		};
 		6A52675BB95A903FFD26A78C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -213,6 +294,24 @@
 				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
+		};
+		6FB61ABC60AAD46822BE5FB7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				INFOPLIST_FILE = TouchDynamicsExampleUITests/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.n2op.TouchDynamicsExampleUITests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = TouchDynamicsExample;
+			};
+			name = Debug;
 		};
 		BBA8D87F231912D450BF21DB /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -325,6 +424,15 @@
 			buildConfigurations = (
 				C10EED8DC65FFCEB4F3DA3A8 /* Debug */,
 				6A52675BB95A903FFD26A78C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		8CD3D88A866E24FC642D4A2C /* Build configuration list for PBXNativeTarget "TouchDynamicsExampleUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6FB61ABC60AAD46822BE5FB7 /* Debug */,
+				087857A2E9AE03FCF5F755E5 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
