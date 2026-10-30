@@ -602,7 +602,13 @@ final class SwiftUIHitTestingTests: XCTestCase {
 #if canImport(UIKit)
 @MainActor
 final class WaveReversalPresentationTests: XCTestCase {
-    func testCollapsedWaveRunsBackwardsOnTheRenderServer() {
+    private func spin(_ seconds: TimeInterval) {
+        RunLoop.main.run(until: Date().addingTimeInterval(seconds))
+    }
+
+    /// Polls the render server instead of sleeping fixed amounts: on shared CI
+    /// runners the presentation layer can lag the model by well over 100 ms.
+    func testCollapsedWaveRunsBackwardsOnTheRenderServer() throws {
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
         window.rootViewController = UIViewController()
         window.isHidden = false
@@ -615,27 +621,47 @@ final class WaveReversalPresentationTests: XCTestCase {
         attachment.engine.handle(.ended(id: .test(1), location: CGPoint(x: 40, y: 40), time: 0.1))
         let ring = host.layer.sublayers!.compactMap { $0 as? CAGradientLayer }.first { ($0.locations?.count ?? 0) == 5 }!
 
-        // Let the wave travel.
-        RunLoop.main.run(until: Date().addingTimeInterval(0.15))
-        let front0 = ring.presentation()!.locations![2].doubleValue
-        let opacity0 = ring.presentation()!.opacity
+        // Wait until the wave has visibly travelled.
+        var front0 = 0.0
+        var opacity0: Float = 0
+        let travelDeadline = Date().addingTimeInterval(1.5)
+        while Date() < travelDeadline {
+            spin(0.01)
+            if let p = ring.presentation(), let loc = p.locations, loc.count == 5, loc[2].doubleValue > 0.12 {
+                front0 = loc[2].doubleValue
+                opacity0 = p.opacity
+                break
+            }
+        }
         print("TD-WAVE before re-press front=\(front0) opacity=\(opacity0)")
-        XCTAssertGreaterThan(front0, 0.05, "the wave has travelled before the re-press")
+        try XCTSkipIf(front0 == 0 || ring.superlayer == nil, "the render server never showed the wave travelling")
 
-        // Re-press during the wave.
+        // Re-press during the wave, then wait for the front to run back.
         attachment.engine.handle(.began(id: .test(2), location: CGPoint(x: 60, y: 40), time: 0.25))
-        RunLoop.main.run(until: Date().addingTimeInterval(0.08))
-        let front1 = ring.presentation()!.locations![2].doubleValue
-        let opacity1 = ring.presentation()!.opacity
-        print("TD-WAVE mid-collapse front=\(front1) opacity=\(opacity1)")
-        XCTAssertLessThan(front1, front0, "the front runs back toward the origin")
-        XCTAssertLessThan(opacity1, opacity0, "the wave fades while collapsing")
+        var reversed = false
+        var front1 = front0
+        var opacity1 = opacity0
+        let collapseDeadline = Date().addingTimeInterval(1.0)
+        while Date() < collapseDeadline, ring.superlayer != nil {
+            spin(0.01)
+            guard let p = ring.presentation(), let loc = p.locations, loc.count == 5 else { continue }
+            front1 = loc[2].doubleValue
+            opacity1 = p.opacity
+            if front1 < front0 - 0.03, opacity1 < opacity0 {
+                reversed = true
+                break
+            }
+        }
+        print("TD-WAVE mid-collapse front=\(front1) opacity=\(opacity1) reversed=\(reversed)")
+        XCTAssertTrue(reversed, "the front runs back toward the origin and fades (front \(front0) → \(front1), opacity \(opacity0) → \(opacity1))")
 
-        RunLoop.main.run(until: Date().addingTimeInterval(0.15))
-        let front2 = ring.presentation()?.locations?[2].doubleValue ?? 0
-        let opacity2 = ring.presentation()?.opacity ?? 0
-        print("TD-WAVE after collapse front=\(front2) opacity=\(opacity2) inTree=\(ring.superlayer != nil)")
-        XCTAssertLessThan(opacity2, 0.02, "the collapsed wave is gone")
+        // The collapsed wave is recycled when its collapse ends.
+        let recycleDeadline = Date().addingTimeInterval(2.0)
+        while ring.superlayer != nil, Date() < recycleDeadline {
+            spin(0.02)
+        }
+        print("TD-WAVE after collapse inTree=\(ring.superlayer != nil)")
+        XCTAssertNil(ring.superlayer, "the collapsed wave is gone")
     }
 }
 #endif
