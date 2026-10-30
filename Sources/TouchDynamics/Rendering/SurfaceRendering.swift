@@ -67,6 +67,8 @@ extension EffectColor {
     func resolve(style: EffectAppearanceStyle, traits: UITraitCollection, tint: UIColor?) -> CGColor {
         switch self {
         case .adaptive:
+            return UIColor.white.cgColor
+        case .adaptiveInk:
             return style == .dark ? UIColor.white.cgColor : UIColor.black.cgColor
         case .tint:
             return (tint ?? .tintColor).resolvedColor(with: traits).cgColor
@@ -83,6 +85,14 @@ extension CGColor {
     func scaledAlpha(_ multiplier: CGFloat) -> CGColor {
         let a = (alpha * multiplier).clamped(to: 0...1)
         return copy(alpha: a) ?? self
+    }
+
+    /// Relative luminance in sRGB, `0...1`.
+    var relativeLuminance: CGFloat {
+        guard let space = CGColorSpace(name: CGColorSpace.sRGB),
+              let rgb = converted(to: space, intent: .defaultIntent, options: nil),
+              let c = rgb.components, c.count >= 3 else { return 1 }
+        return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
     }
 }
 

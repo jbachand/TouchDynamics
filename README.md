@@ -2,9 +2,9 @@
 
 Physically responsive touch feedback for any iOS view, in one line.
 
-- **Touch illumination** — a Gaussian light appears under the finger the frame it lands, and follows it.
+- **Touch illumination** — a Gaussian light appears under the finger the frame it lands, and follows it. It is a light in both appearances: what it covers gets lighter.
 - **Release ripple** — a soft disc and wavefront ring leave from where the finger lifted and fade as they cover the view.
-- **Elastic deformation** — the content yields toward the finger and springs back; layout never changes.
+- **Elastic deformation** — the content grows slightly from the finger and springs back; layout never changes.
 - **Interruptible** — a press during the previous lift reverses it: the light comes back under the finger, the wave collapses, the spring retargets.
 - **Gesture-safe** — touches are observed, never claimed. Scrolling, swiping, navigation, buttons and cell selection work exactly as before.
 - **Universal** — SwiftUI views, UIKit views and controls, table/collection cells, nested scroll containers.
@@ -84,7 +84,7 @@ CommentContent().touchDynamics(config)
 | --- | --- |
 | `IlluminationConfiguration` | color, intensity, radius, falloff, ramp-in, fade-out, tracking, placement, compositing |
 | `RippleConfiguration` | duration, expansion, profile (disc / ring / both), wavefront width, decay, origin, color |
-| `ElasticityConfiguration` | strength, mode (anchored / uniform / shear), compress or expand, directional tension, limits, spring (damping ratio, stiffness, mass) |
+| `ElasticityConfiguration` | strength, mode (anchored / uniform / shear), expand (default) or compress, directional tension, limits, spring (damping ratio, stiffness, mass) |
 | `GestureConfiguration` | tap slop, long press, drag behavior, release-after-drag, scroll takeover (maintain / dissipate / suppress), release-after-scroll, cancellation, touch limit, pointer |
 | `RenderingConfiguration` | Core Animation or Metal, clip shape, frame rate, ripple limit |
 | `AccessibilityConfiguration` | Reduce Motion, Reduce Transparency, VoiceOver behavior |
@@ -93,8 +93,10 @@ CommentContent().touchDynamics(config)
 
 | Preset | Behavior |
 | --- | --- |
-| `.subtle` | Soft illumination, minimal deformation |
-| `.fluid` (= `.default`) | Bright ripple, gentle directional elasticity — the comment-row interaction the SDK was specified against |
+| `.whisper` | Barely there: noticeable only if you look for it |
+| `.faint` | Noticeably quieter than subtle |
+| `.subtle` (= `.default`) | Soft illumination, minimal deformation; the top of the quiet ladder |
+| `.fluid` | Bright ripple, gentle directional elasticity — the comment-row interaction the SDK was specified against |
 | `.elastic` | Stronger spring and touch deformation |
 | `.material` | Soft, diffused, surface-oriented feedback; drag dissipates |
 | `.rippleOnly` | Illumination and wave without deformation |
@@ -142,7 +144,7 @@ The effect surface is never an accessibility element and never hit-tests.
 
 `Example/TouchDynamicsExample.xcodeproj` (regenerate with `xcodegen` from `Example/project.yml`) demonstrates comments, buttons, cards, UIKit table/collection cells, sheets, navigation pushes, nested scrolling, a container-level surface, and a Tuning tab that edits every configuration value against a live preview.
 
-The demo starts on the `.subtle` preset; the Tuning tab switches presets and edits every value. The `TouchDynamicsExampleUITests` target drives the app with real touches and asserts that every native gesture still works with effects on. Launch arguments `-td-preset <subtle|fluid|elastic|material|rippleOnly>` pick a preset, `-td-mode off|silent|noelastic|full` select a baseline without the modifier, the observer with silent effects, effects without deformation, or everything, and `-td-log <path>` records every engine command.
+The demo starts on the `.subtle` preset, the default; the Tuning tab switches presets and edits every value. The `TouchDynamicsExampleUITests` target drives the app with real touches and asserts that every native gesture still works with effects on. Launch arguments `-td-preset <whisper|faint|subtle|fluid|elastic|material|rippleOnly>` pick a preset, `-td-scheme dark|light` forces an appearance, `-td-mode off|silent|noelastic|full` select a baseline without the modifier, the observer with silent effects, effects without deformation, or everything, and `-td-log <path>` records every engine command.
 
 ## Acceptance criteria
 
@@ -163,7 +165,7 @@ The demo starts on the `.subtle` preset; the Tuning tab switches presets and edi
 
 ## Status and roadmap
 
-This is the v1.0 implementation of the PRD, verified on the iOS Simulator by 101 unit/integration tests and 8 UI tests that exercise the real touch path. Two things are explicitly still open:
+This is the v1.0 implementation of the PRD, verified on the iOS Simulator by 103 unit/integration tests and 8 UI tests that exercise the real touch path. Two things are explicitly still open:
 
 - **Device measurement.** Frame-rate and onset budgets must be confirmed on hardware with Instruments, including the oldest supported devices. The architecture is built for it (no display link in the default renderer, bounded resources), but the numbers have not been taken yet.
 - **Shader-based displacement.** `DeformationMode.displacement` is accepted and renders as `anchoredScale` on every renderer in v1.0. Content-texture displacement is reserved for the Metal renderer in a later release.

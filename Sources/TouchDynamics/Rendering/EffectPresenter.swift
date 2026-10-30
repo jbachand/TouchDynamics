@@ -103,14 +103,18 @@ final class EffectPresenter {
     }
 
     private func illuminate(_ session: TouchSession, in host: EffectHostView, bounds: CGRect) {
+        let style: EffectAppearanceStyle = host.traitCollection.userInterfaceStyle == .dark ? .dark : .light
+        let accessibility = accessibilityStatusProvider()
+        let colors = colors(style: style, accessibility: accessibility, in: host)
         let appearance = ResolvedEffectAppearance(
             configuration: configuration,
-            style: host.traitCollection.userInterfaceStyle == .dark ? .dark : .light,
-            accessibility: accessibilityStatusProvider()
+            style: style,
+            accessibility: accessibility,
+            illuminationColorIsLight: colors.illumination.relativeLuminance > 0.5
         )
         appearances[session.id] = appearance
         host.layer.compositingFilter = appearance.compositingFilterName
-        renderer.illuminate(session, appearance: appearance, colors: colors(for: appearance, in: host))
+        renderer.illuminate(session, appearance: appearance, colors: colors)
         if let el = appearance.elasticity {
             deformationOwner = session.id
             let state = DeformationField(configuration: el).state(for: session, in: bounds)
@@ -127,10 +131,14 @@ final class EffectPresenter {
         immediate: Bool = false,
         surfaceExit: (ResolvedEffectAppearance, ResolvedEffectColors, @escaping @MainActor () -> Void) -> Void
     ) {
+        let style: EffectAppearanceStyle = host.traitCollection.userInterfaceStyle == .dark ? .dark : .light
+        let accessibility = accessibilityStatusProvider()
+        let colors = colors(style: style, accessibility: accessibility, in: host)
         let appearance = appearances.removeValue(forKey: session.id) ?? ResolvedEffectAppearance(
             configuration: configuration,
-            style: host.traitCollection.userInterfaceStyle == .dark ? .dark : .light,
-            accessibility: accessibilityStatusProvider()
+            style: style,
+            accessibility: accessibility,
+            illuminationColorIsLight: colors.illumination.relativeLuminance > 0.5
         )
         let gen = generation
         var pending = 2
@@ -139,7 +147,7 @@ final class EffectPresenter {
             guard pending == 0, let self, self.generation == gen else { return }
             self.onSettled?(session.id)
         }
-        surfaceExit(appearance, colors(for: appearance, in: host), done)
+        surfaceExit(appearance, colors, done)
 
         if deformationOwner == session.id, let el = appearance.elasticity {
             deformationOwner = nil
@@ -150,11 +158,17 @@ final class EffectPresenter {
         }
     }
 
-    private func colors(for appearance: ResolvedEffectAppearance, in host: EffectHostView) -> ResolvedEffectColors {
+    private func colors(style: EffectAppearanceStyle, accessibility: AccessibilityStatus, in host: EffectHostView) -> ResolvedEffectColors {
         let traits = host.traitCollection
         let tint = host.tintColor
-        let illumination = configuration.illumination.color.resolve(style: appearance.style, traits: traits, tint: tint)
-        let ripple = configuration.ripple.color?.resolve(style: appearance.style, traits: traits, tint: tint) ?? illumination
+        var illuminationColor = configuration.illumination.color
+        // The Reduce Transparency flat highlight must stay visible on a white
+        // surface, so the default light becomes a shade there.
+        if configuration.accessibility.respectsReduceTransparency, accessibility.isReduceTransparencyEnabled, illuminationColor == .adaptive {
+            illuminationColor = .adaptiveInk
+        }
+        let illumination = illuminationColor.resolve(style: style, traits: traits, tint: tint)
+        let ripple = configuration.ripple.color?.resolve(style: style, traits: traits, tint: tint) ?? illumination
         return ResolvedEffectColors(illumination: illumination, ripple: ripple)
     }
 }

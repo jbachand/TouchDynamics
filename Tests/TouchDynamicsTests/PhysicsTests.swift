@@ -176,15 +176,15 @@ final class DeformationTests: XCTestCase {
         let session = TouchSession(id: .test(1), startLocation: CGPoint(x: 40, y: 20), startTime: 0)
         let state = field.state(for: session, in: bounds)
         XCTAssertEqual(state.anchor, CGPoint(x: 40, y: 20))
-        XCTAssertEqual(state.scaleX, 0.97, accuracy: 1e-9)
-        XCTAssertEqual(state.scaleY, 0.97, accuracy: 1e-9)
+        XCTAssertEqual(state.scaleX, 1.03, accuracy: 1e-9, "a press grows by default")
+        XCTAssertEqual(state.scaleY, 1.03, accuracy: 1e-9)
 
         let topLeft = state.affineTransform(in: bounds, origin: .topLeft)
         let mapped = CGPoint(x: 40, y: 20).applying(topLeft)
         XCTAssertEqual(mapped.x, 40, accuracy: 1e-9)
         XCTAssertEqual(mapped.y, 20, accuracy: 1e-9)
         let far = CGPoint(x: 300, y: 80).applying(topLeft)
-        XCTAssertEqual(far.x, 40 + 260 * 0.97, accuracy: 1e-9)
+        XCTAssertEqual(far.x, 40 + 260 * 1.03, accuracy: 1e-9)
 
         // The center convention maps the same anchor to itself relative to the center.
         let centered = state.affineTransform(in: bounds, origin: .center)
@@ -205,7 +205,9 @@ final class DeformationTests: XCTestCase {
         let field = DeformationField(configuration: ElasticityConfiguration(strength: 0.4, maximumDeformation: 0.05))
         let session = TouchSession(id: .test(1), startLocation: CGPoint(x: 10, y: 10), startTime: 0)
         let state = field.state(for: session, in: bounds)
-        XCTAssertEqual(state.scaleX, 0.95, accuracy: 1e-9)
+        XCTAssertEqual(state.scaleX, 1.05, accuracy: 1e-9)
+        let compressing = DeformationField(configuration: ElasticityConfiguration(strength: 0.4, response: .compress, maximumDeformation: 0.05))
+        XCTAssertEqual(compressing.state(for: session, in: bounds).scaleX, 0.95, accuracy: 1e-9)
     }
 
     func testTensionStretchesAlongDisplacement() {
@@ -242,7 +244,7 @@ final class DeformationTests: XCTestCase {
     func testEmphasisDeepensPress() {
         let field = DeformationField(configuration: ElasticityConfiguration(strength: 0.02, maximumDeformation: 0.1))
         let session = TouchSession(id: .test(1), startLocation: CGPoint(x: 10, y: 10), startTime: 0)
-        XCTAssertEqual(field.state(for: session, in: bounds, emphasis: 1.5).scaleX, 0.97, accuracy: 1e-9)
+        XCTAssertEqual(field.state(for: session, in: bounds, emphasis: 1.5).scaleX, 1.03, accuracy: 1e-9)
     }
 
     func testIdentityTransformIsIdentity() {

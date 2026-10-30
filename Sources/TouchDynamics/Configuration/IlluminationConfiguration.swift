@@ -31,9 +31,9 @@ public enum EffectPlacement: Sendable, Equatable {
 public enum EffectCompositing: Sendable, Equatable {
     /// Standard source-over alpha compositing.
     case normal
-    /// `multiply` in light appearance (darkens), `screen` in dark appearance
-    /// (brightens). Keeps dark text dark and light text light, so an effect
-    /// placed above the content still reads as sitting beneath it.
+    /// `screen` for a light color (the default white light brightens what it
+    /// covers), `multiply` for a dark color (a shade darkens it). Either way
+    /// an effect placed above the content reads as acting on the surface.
     case adaptive
     /// Always multiply (darkening).
     case multiply

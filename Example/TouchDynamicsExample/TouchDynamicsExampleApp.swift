@@ -20,6 +20,7 @@ struct TouchDynamicsExampleApp: App {
                     .tabItem { Label("Tuning", systemImage: "slider.horizontal.3") }
             }
             .environmentObject(tuning)
+            .preferredColorScheme(tuning.forcedScheme)
         }
     }
 }

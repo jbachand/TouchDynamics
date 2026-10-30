@@ -15,5 +15,5 @@ import Foundation
 /// renderers from the same deterministic state machine.
 public enum TouchDynamics {
     /// The SDK version, following semantic versioning.
-    public static let version = "1.2.3"
+    public static let version = "1.3.0"
 }

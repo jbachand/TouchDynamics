@@ -4,6 +4,21 @@ All notable changes to TouchDynamics are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.3.0] - 2026-10-30
+
+### Changed
+- The default light is now a light in both appearances: `EffectColor.adaptive`
+  resolves to white everywhere and `EffectCompositing.adaptive` picks `screen`
+  for light colors, so content under the finger gets lighter in light mode
+  instead of darker. The former shade is available as
+  `EffectColor.adaptiveInk`, and the Reduce Transparency flat highlight uses
+  it automatically so it stays visible on white.
+- A press grows instead of shrinking: `ElasticityConfiguration.response`
+  defaults to `.expand`.
+- `.subtle` is now the default preset and the top of a quiet ladder. Two
+  quieter levels were added below it: `.faint` and `.whisper`, the latter
+  noticeable only if you look for it.
+
 ## [1.2.3] - 2026-10-30
 
 ### Fixed

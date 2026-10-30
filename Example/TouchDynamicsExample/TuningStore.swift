@@ -5,11 +5,13 @@ import TouchDynamics
 @MainActor
 final class TuningStore: ObservableObject {
     enum Preset: String, CaseIterable, Identifiable {
-        case subtle, fluid, elastic, material, rippleOnly
+        case whisper, faint, subtle, fluid, elastic, material, rippleOnly
         var id: String { rawValue }
 
         var configuration: TouchDynamicsConfiguration {
             switch self {
+            case .whisper: return .whisper
+            case .faint: return .faint
             case .subtle: return .subtle
             case .fluid: return .fluid
             case .elastic: return .elastic
@@ -25,10 +27,16 @@ final class TuningStore: ObservableObject {
     @Published var configuration: TouchDynamicsConfiguration = .subtle
     /// `false` renders the demos without the modifier (UI-test baseline).
     @Published var effectsEnabled = true
+    /// Forced color scheme (`-td-scheme dark|light`); `nil` follows the system.
+    @Published var forcedScheme: ColorScheme?
 
     init() {
-        // UI-test rig: `-td-preset <name>`, `-td-mode off|silent|noelastic|full`, `-td-log <path>`.
+        // UI-test rig: `-td-preset <name>`, `-td-mode off|silent|noelastic|full`,
+        // `-td-log <path>`, `-td-scheme dark|light`.
         let args = CommandLine.arguments
+        if let i = args.firstIndex(of: "-td-scheme"), i + 1 < args.count {
+            forcedScheme = args[i + 1] == "dark" ? .dark : (args[i + 1] == "light" ? .light : nil)
+        }
         if let i = args.firstIndex(of: "-td-preset"), i + 1 < args.count, let chosen = Preset(rawValue: args[i + 1]) {
             preset = chosen
             configuration = chosen.configuration

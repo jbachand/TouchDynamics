@@ -44,8 +44,10 @@ let attachment = TouchDynamics.attach(to: commentView, configuration: .default)
 
 | Preset | Behavior |
 | --- | --- |
-| `.subtle` | Soft illumination, minimal deformation |
-| `.fluid` (default) | Bright ripple, gentle directional elasticity |
+| `.whisper` | Barely there: noticeable only if you look for it |
+| `.faint` | Noticeably quieter than subtle |
+| `.subtle` (default) | Soft illumination, minimal deformation |
+| `.fluid` | Bright ripple, gentle directional elasticity |
 | `.elastic` | Stronger spring and touch deformation |
 | `.material` | Soft, diffused, surface-oriented feedback |
 | `.rippleOnly` | Illumination and wave without deformation |

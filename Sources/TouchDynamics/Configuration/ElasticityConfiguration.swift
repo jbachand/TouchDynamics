@@ -35,7 +35,7 @@ public struct ElasticityConfiguration: Sendable, Equatable {
     public var strength: CGFloat
     /// Geometric model.
     public var mode: DeformationMode
-    /// Compress (default) or expand on press.
+    /// Expand (default) or compress on press.
     public var response: PressResponse
     /// Directional tension: how strongly finger displacement stretches or
     /// shears the content, as a fraction of size per full-size displacement.
@@ -55,7 +55,7 @@ public struct ElasticityConfiguration: Sendable, Equatable {
         isEnabled: Bool = true,
         strength: CGFloat = 0.025,
         mode: DeformationMode = .anchoredScale,
-        response: PressResponse = .compress,
+        response: PressResponse = .expand,
         tension: CGFloat = 0.06,
         maximumDeformation: CGFloat = 0.08,
         damping: Double = 0.72,

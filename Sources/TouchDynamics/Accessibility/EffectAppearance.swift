@@ -47,10 +47,15 @@ public struct ResolvedEffectAppearance: Sendable, Equatable {
     public var style: EffectAppearanceStyle
 
     /// Resolves a configuration for a touch.
+    /// - Parameter illuminationColorIsLight: whether the resolved illumination
+    ///   color is light (luminance above one half). Drives
+    ///   ``EffectCompositing/adaptive``: a light brightens (`screen`), a shade
+    ///   darkens (`multiply`).
     public init(
         configuration: TouchDynamicsConfiguration,
         style: EffectAppearanceStyle,
-        accessibility: AccessibilityStatus
+        accessibility: AccessibilityStatus,
+        illuminationColorIsLight: Bool = true
     ) {
         let a11y = configuration.accessibility
         let reduceMotion = a11y.respectsReduceMotion && accessibility.isReduceMotionEnabled
@@ -101,7 +106,7 @@ public struct ResolvedEffectAppearance: Sendable, Equatable {
         case .screen:
             self.compositingFilterName = "screenBlendMode"
         case .adaptive:
-            self.compositingFilterName = style == .dark ? "screenBlendMode" : "multiplyBlendMode"
+            self.compositingFilterName = illuminationColorIsLight ? "screenBlendMode" : "multiplyBlendMode"
         }
         // A flat high-contrast highlight must not be blended away.
         if reduceTransparency { self.compositingFilterName = nil }

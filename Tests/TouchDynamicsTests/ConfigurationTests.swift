@@ -2,12 +2,30 @@ import XCTest
 @testable import TouchDynamics
 
 final class ConfigurationTests: XCTestCase {
-    func testDefaultIsFluid() {
-        XCTAssertEqual(TouchDynamicsConfiguration.default, .fluid)
+    func testDefaultIsSubtle() {
+        XCTAssertEqual(TouchDynamicsConfiguration.default, .subtle)
+    }
+
+    func testQuietLadderDescends() {
+        let ladder: [TouchDynamicsConfiguration] = [.subtle, .faint, .whisper]
+        for (louder, quieter) in zip(ladder, ladder.dropFirst()) {
+            XCTAssertGreaterThan(louder.illumination.intensity, quieter.illumination.intensity)
+            XCTAssertGreaterThan(louder.elasticity.strength, quieter.elasticity.strength)
+            XCTAssertGreaterThanOrEqual(louder.illumination.radius, quieter.illumination.radius)
+        }
+        XCTAssertLessThan(TouchDynamicsConfiguration.whisper.illumination.intensity, 0.05, "the lowest level is barely there")
+        XCTAssertEqual(TouchDynamicsConfiguration.whisper.ripple.peakIntensity, 0.04)
+    }
+
+    func testPressGrowsByDefault() {
+        XCTAssertEqual(ElasticityConfiguration().response, .expand)
+        for preset in [TouchDynamicsConfiguration.subtle, .faint, .whisper, .fluid, .elastic] {
+            XCTAssertEqual(preset.elasticity.response, .expand)
+        }
     }
 
     func testPresetsAreDistinct() {
-        let presets: [TouchDynamicsConfiguration] = [.subtle, .fluid, .elastic, .material, .rippleOnly]
+        let presets: [TouchDynamicsConfiguration] = [.whisper, .faint, .subtle, .fluid, .elastic, .material, .rippleOnly]
         for (i, a) in presets.enumerated() {
             for b in presets.dropFirst(i + 1) {
                 XCTAssertNotEqual(a, b)
@@ -72,7 +90,7 @@ final class ConfigurationTests: XCTestCase {
     }
 
     func testVersion() {
-        XCTAssertEqual(TouchDynamics.version, "1.2.3")
+        XCTAssertEqual(TouchDynamics.version, "1.3.0")
     }
 
     func testTouchIdentifierFromObjectIsStable() {
@@ -100,8 +118,9 @@ final class ResolvedEffectAppearanceTests: XCTestCase {
         XCTAssertFalse(a.isSilent)
     }
 
-    func testAdaptiveCompositingFollowsAppearance() {
-        XCTAssertEqual(ResolvedEffectAppearance(configuration: config, style: .light, accessibility: .none).compositingFilterName, "multiplyBlendMode")
+    func testAdaptiveCompositingFollowsTheColor() {
+        XCTAssertEqual(ResolvedEffectAppearance(configuration: config, style: .light, accessibility: .none).compositingFilterName, "screenBlendMode", "a light brightens in light appearance too")
+        XCTAssertEqual(ResolvedEffectAppearance(configuration: config, style: .light, accessibility: .none, illuminationColorIsLight: false).compositingFilterName, "multiplyBlendMode", "a shade darkens")
         var normal = config
         normal.illumination.compositing = .normal
         XCTAssertNil(ResolvedEffectAppearance(configuration: normal, style: .light, accessibility: .none).compositingFilterName)

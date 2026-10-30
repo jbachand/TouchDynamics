@@ -17,10 +17,12 @@ final class GesturePassThroughUITests: XCTestCase {
         try? png.write(to: URL(fileURLWithPath: "/tmp/td-shot-\(name).png"))
     }
 
-    /// The tests measure the `.fluid` preset regardless of the demo's default.
+    /// The tests measure the `.fluid` preset in dark appearance regardless of
+    /// the demo's defaults: the default light is white, which on a white row
+    /// only shows on the text, while on a dark row it lights the row itself.
     private func launch(mode: String) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-td-preset", "fluid", "-td-mode", mode]
+        app.launchArguments = ["-td-preset", "fluid", "-td-scheme", "dark", "-td-mode", mode]
         app.launch()
         return app
     }
@@ -107,7 +109,7 @@ final class GesturePassThroughUITests: XCTestCase {
         let logPath = "/tmp/td-commands-holdscroll.txt"
         try? FileManager.default.removeItem(atPath: logPath)
         let app = XCUIApplication()
-        app.launchArguments = ["-td-preset", "fluid", "-td-mode", "full", "-td-log", logPath]
+        app.launchArguments = ["-td-preset", "fluid", "-td-scheme", "dark", "-td-mode", "full", "-td-log", logPath]
         app.launch()
         let firstComment = app.staticTexts["This is exactly the kind of micro-interaction that makes an app feel alive."].firstMatch
         XCTAssertTrue(firstComment.waitForExistence(timeout: 15))
@@ -159,7 +161,7 @@ final class GesturePassThroughUITests: XCTestCase {
         let logPath = "/tmp/td-commands.txt"
         try? FileManager.default.removeItem(atPath: logPath)
         let app = XCUIApplication()
-        app.launchArguments = ["-td-preset", "fluid", "-td-mode", "full", "-td-log", logPath]
+        app.launchArguments = ["-td-preset", "fluid", "-td-scheme", "dark", "-td-mode", "full", "-td-log", logPath]
         app.launch()
         let firstComment = app.staticTexts["This is exactly the kind of micro-interaction that makes an app feel alive."].firstMatch
         XCTAssertTrue(firstComment.waitForExistence(timeout: 15))
@@ -187,7 +189,7 @@ final class GesturePassThroughUITests: XCTestCase {
         let logPath = "/tmp/td-commands-doubletap.txt"
         try? FileManager.default.removeItem(atPath: logPath)
         let app = XCUIApplication()
-        app.launchArguments = ["-td-preset", "fluid", "-td-mode", "full", "-td-log", logPath]
+        app.launchArguments = ["-td-preset", "fluid", "-td-scheme", "dark", "-td-mode", "full", "-td-log", logPath]
         app.launch()
         let firstComment = app.staticTexts["This is exactly the kind of micro-interaction that makes an app feel alive."].firstMatch
         XCTAssertTrue(firstComment.waitForExistence(timeout: 15))
@@ -214,7 +216,7 @@ final class GesturePassThroughUITests: XCTestCase {
         let logPath = "/tmp/td-commands-slowdouble.txt"
         try? FileManager.default.removeItem(atPath: logPath)
         let app = XCUIApplication()
-        app.launchArguments = ["-td-preset", ProcessInfo.processInfo.environment["TD_PRESET"] ?? "fluid", "-td-mode", "full", "-td-log", logPath]
+        app.launchArguments = ["-td-preset", ProcessInfo.processInfo.environment["TD_PRESET"] ?? "fluid", "-td-scheme", ProcessInfo.processInfo.environment["TD_SCHEME"] ?? "dark", "-td-mode", "full", "-td-log", logPath]
         app.launch()
         let firstComment = app.staticTexts["This is exactly the kind of micro-interaction that makes an app feel alive."].firstMatch
         XCTAssertTrue(firstComment.waitForExistence(timeout: 15))

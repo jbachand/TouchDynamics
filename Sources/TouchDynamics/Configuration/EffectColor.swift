@@ -12,11 +12,17 @@ import SwiftUI
 /// Colors are resolved at touch time against the host view's trait collection
 /// and tint color, so appearance changes are picked up automatically.
 public enum EffectColor: Equatable {
-    /// White light in dark appearance, black shade in light appearance.
+    /// White light in both appearances: whatever is under the finger gets
+    /// lighter. On a pure white surface only the content (text, images)
+    /// shows it; on any darker surface the surface itself brightens.
     ///
-    /// This is the default and reads as a "light under the finger" on dark
-    /// surfaces and as a soft press shadow on light surfaces.
+    /// This is the default. For a shade that darkens instead, use
+    /// ``adaptiveInk``.
     case adaptive
+
+    /// Black in light appearance, white in dark: a shade rather than a light.
+    /// Reads as a soft press shadow on light surfaces.
+    case adaptiveInk
 
     /// The host view's effective `tintColor` (UIKit) or accent color.
     case tint

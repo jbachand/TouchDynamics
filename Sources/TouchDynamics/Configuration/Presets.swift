@@ -2,14 +2,30 @@ import Foundation
 import CoreGraphics
 
 public extension TouchDynamicsConfiguration {
-    /// The default configuration. Identical to ``fluid``.
-    static let `default` = TouchDynamicsConfiguration.fluid
+    /// The default configuration. Identical to ``subtle``.
+    static let `default` = TouchDynamicsConfiguration.subtle
 
-    /// Soft illumination, a quiet ripple, and minimal deformation.
+    /// Soft illumination, a quiet ripple, and minimal deformation. The
+    /// strongest of the quiet ladder (``whisper`` < ``faint`` < ``subtle``)
+    /// and the default.
     static let subtle = TouchDynamicsConfiguration(
         illumination: .init(intensity: 0.10, radius: 90, falloff: 0.5, rampInDuration: 0.1),
         ripple: .init(duration: 0.3, profile: .softGradient, decay: 3.0),
         elasticity: .init(strength: 0.012, tension: 0.03, damping: 0.85, stiffness: 380)
+    )
+
+    /// Noticeably quieter than ``subtle``.
+    static let faint = TouchDynamicsConfiguration(
+        illumination: .init(intensity: 0.06, radius: 80, falloff: 0.5, rampInDuration: 0.1),
+        ripple: .init(duration: 0.28, profile: .softGradient, decay: 3.3, peakIntensity: 0.07),
+        elasticity: .init(strength: 0.007, tension: 0.02, damping: 0.88, stiffness: 400)
+    )
+
+    /// Barely there: you notice it only if you are looking for it.
+    static let whisper = TouchDynamicsConfiguration(
+        illumination: .init(intensity: 0.035, radius: 70, falloff: 0.5, rampInDuration: 0.12),
+        ripple: .init(duration: 0.26, profile: .softGradient, decay: 3.6, peakIntensity: 0.04),
+        elasticity: .init(strength: 0.004, tension: 0.01, damping: 0.9, stiffness: 420)
     )
 
     /// Bright ripple and gentle directional elasticity. This reproduces the

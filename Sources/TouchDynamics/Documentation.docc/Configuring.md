@@ -9,7 +9,7 @@ Every effect is driven by one `Sendable`, `Equatable` value.
 | ``TouchDynamicsConfiguration`` | The whole effect; presets live here |
 | ``IlluminationConfiguration`` | Color, intensity, radius, falloff, ramp, tracking, placement, compositing |
 | ``RippleConfiguration`` | Duration, expansion, profile, wavefront width, decay, origin, color |
-| ``ElasticityConfiguration`` | Strength, mode, response, tension, limits, spring (damping, stiffness, mass) |
+| ``ElasticityConfiguration`` | Strength, mode, response (grow by default), tension, limits, spring (damping, stiffness, mass) |
 | ``GestureConfiguration`` | Tap slop, long press, drag, release, scroll, cancellation, touch limits |
 | ``RenderingConfiguration`` | Renderer, clip shape, frame rate, ripple limit |
 | ``AccessibilityConfiguration`` | Reduce Motion, Reduce Transparency, VoiceOver adaptations |

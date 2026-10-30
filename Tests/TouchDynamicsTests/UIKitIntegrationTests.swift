@@ -147,7 +147,8 @@ final class UIKitIntegrationTests: XCTestCase {
         let window = makeWindow()
         let view = UIView(frame: CGRect(x: 0, y: 0, width: 200, height: 44))
         window.addSubview(view)
-        let attachment = TouchDynamics.attach(to: view)
+        // `.fluid` for its combined (disc + ring) wave profile.
+        let attachment = TouchDynamics.attach(to: view, configuration: .fluid)
         XCTAssertEqual(attachment.activeRenderer, .coreAnimation)
         let host = view.subviews.first as! EffectHostView
 
@@ -156,9 +157,9 @@ final class UIKitIntegrationTests: XCTestCase {
         let illumination = host.layer.sublayers!.first as! CAGradientLayer
         XCTAssertEqual(illumination.type, .radial)
         XCTAssertEqual(illumination.position, CGPoint(x: 30, y: 20), "illumination originates at the touch")
-        XCTAssertEqual(illumination.bounds.width, TouchDynamicsConfiguration.default.illumination.radius * 2)
+        XCTAssertEqual(illumination.bounds.width, TouchDynamicsConfiguration.fluid.illumination.radius * 2)
         XCTAssertNotEqual(view.transform, .identity, "press deformation is applied")
-        XCTAssertEqual(host.layer.compositingFilter as? String, "multiplyBlendMode")
+        XCTAssertEqual(host.layer.compositingFilter as? String, "screenBlendMode", "a white light brightens in light appearance")
 
         attachment.engine.handle(.moved(id: .test(1), location: CGPoint(x: 36, y: 22), time: 0.05))
         XCTAssertEqual(illumination.position, CGPoint(x: 36, y: 22), "illumination follows the finger")
@@ -202,7 +203,7 @@ final class UIKitIntegrationTests: XCTestCase {
         let window = makeWindow()
         let view = UIView(frame: CGRect(x: 0, y: 0, width: 200, height: 44))
         window.addSubview(view)
-        let attachment = TouchDynamics.attach(to: view)
+        let attachment = TouchDynamics.attach(to: view, configuration: .fluid)
         let host = view.subviews.first as! EffectHostView
         let renderer = attachment.presenter.renderer as! CoreAnimationSurfaceRenderer
 
@@ -377,6 +378,7 @@ final class UIKitIntegrationTests: XCTestCase {
         XCTAssertFalse(layer is CAGradientLayer)
         XCTAssertEqual(layer.frame, view.bounds)
         XCTAssertNil(host.layer.compositingFilter)
+        XCTAssertLessThan(layer.backgroundColor!.relativeLuminance, 0.5, "the flat highlight is a visible shade in light appearance")
     }
 
     func testDeformationDriverStepsAsideWhenHostOwnsTheTransform() {
@@ -491,7 +493,11 @@ final class UIKitIntegrationTests: XCTestCase {
     func testEffectColorResolution() {
         let traits = UITraitCollection(userInterfaceStyle: .dark)
         XCTAssertEqual(EffectColor.adaptive.resolve(style: .dark, traits: traits, tint: nil), UIColor.white.cgColor)
-        XCTAssertEqual(EffectColor.adaptive.resolve(style: .light, traits: traits, tint: nil), UIColor.black.cgColor)
+        XCTAssertEqual(EffectColor.adaptive.resolve(style: .light, traits: traits, tint: nil), UIColor.white.cgColor, "the default is a light in both appearances")
+        XCTAssertEqual(EffectColor.adaptiveInk.resolve(style: .light, traits: traits, tint: nil), UIColor.black.cgColor)
+        XCTAssertEqual(EffectColor.adaptiveInk.resolve(style: .dark, traits: traits, tint: nil), UIColor.white.cgColor)
+        XCTAssertGreaterThan(UIColor.white.cgColor.relativeLuminance, 0.5)
+        XCTAssertLessThan(UIColor.black.cgColor.relativeLuminance, 0.5)
         XCTAssertEqual(EffectColor.tint.resolve(style: .light, traits: traits, tint: .systemRed), UIColor.systemRed.resolvedColor(with: traits).cgColor)
         XCTAssertEqual(EffectColor.rgba(red: 1, green: 0, blue: 0, alpha: 0.5).resolve(style: .light, traits: traits, tint: nil).alpha, 0.5)
         XCTAssertEqual(EffectColor.color(UIColor.systemBlue), .uiColor(.systemBlue))

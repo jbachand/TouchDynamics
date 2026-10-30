@@ -21,7 +21,9 @@ struct TuningDemo: View {
                             Text(preset.rawValue).tag(preset)
                         }
                     }
-                    .pickerStyle(.segmented)
+                    .pickerStyle(.menu)
+                    Text("whisper < faint < subtle is the quiet ladder; subtle is the default.")
+                        .font(.footnote).foregroundStyle(.secondary)
                 }
 
                 Section("Illumination") {
