@@ -11,6 +11,8 @@ final class CoreAnimationSurfaceRenderer: SurfaceRendering {
     private var illuminationLayers: [TouchIdentifier: CALayer] = [:]
     /// Layers fading out after their session ended; owned until removed.
     private var fadingLayers: [CALayer] = []
+    /// Wave layers running back to their origin after a re-press.
+    private var collapsingLayers: [CALayer] = []
     private var flatLayers: Set<ObjectIdentifier> = []
     private var rippleLayers: [[CALayer]] = []
     private var pool: [CAGradientLayer] = []
@@ -229,6 +231,10 @@ final class CoreAnimationSurfaceRenderer: SurfaceRendering {
             discard(layer)
         }
         fadingLayers.removeAll()
+        for layer in collapsingLayers {
+            discard(layer)
+        }
+        collapsingLayers.removeAll()
         for group in rippleLayers {
             for layer in group { discard(layer) }
         }
@@ -237,7 +243,7 @@ final class CoreAnimationSurfaceRenderer: SurfaceRendering {
 
     /// Layers currently owned by the renderer (for tests and diagnostics).
     var ownedLayerCount: Int {
-        illuminationLayers.count + fadingLayers.count + rippleLayers.reduce(0) { $0 + $1.count }
+        illuminationLayers.count + fadingLayers.count + collapsingLayers.count + rippleLayers.reduce(0) { $0 + $1.count }
     }
 
     // MARK: Wave
@@ -317,7 +323,10 @@ final class CoreAnimationSurfaceRenderer: SurfaceRendering {
         }, completion: { [weak self] in
             guard let self else { return }
             self.untrack(ripple: layers)
-            for layer in layers { self.recycle(layer) }
+            // A collapsing layer is recycled by its collapse instead.
+            for layer in layers where !self.collapsingLayers.contains(where: { $0 === layer }) {
+                self.recycle(layer)
+            }
             completion()
         })
         return layers
@@ -408,31 +417,54 @@ final class CoreAnimationSurfaceRenderer: SurfaceRendering {
     }
 
     /// Runs every in-flight wave backwards to its origin and fades it out.
-    /// The wave's own transaction still completes on schedule and recycles
-    /// the layers, which are invisible by then.
+    ///
+    /// The running keyframe animations are replaced, not layered over: Core
+    /// Animation keeps playing an earlier animation on the same key path, so
+    /// the presentation values are captured, the originals removed, and the
+    /// collapse animated from there. Removing the originals completes the
+    /// wave's transaction, which reports the lift finished and leaves the
+    /// collapsing layers to be recycled when the collapse ends.
     private func collapseActiveRipples() {
+        let gen = generation
         for group in rippleLayers {
-            for layer in group where layer.animation(forKey: "td.collapseOpacity") == nil {
-                let fromOpacity = layer.presentation()?.opacity ?? layer.opacity
-                let fade = CABasicAnimation(keyPath: "opacity")
-                fade.fromValue = fromOpacity
-                fade.toValue = 0
-                fade.duration = collapseDuration
-                fade.timingFunction = CAMediaTimingFunction(name: .easeIn)
-                fade.fillMode = .forwards
-                fade.isRemovedOnCompletion = false
-                layer.add(fade, forKey: "td.collapseOpacity")
-                if let gradient = layer as? CAGradientLayer,
-                   let start = gradient.value(forKey: Self.startLocationsKey) as? [NSNumber] {
-                    let back = CABasicAnimation(keyPath: "locations")
-                    back.fromValue = gradient.presentation()?.locations ?? gradient.locations
-                    back.toValue = start
-                    back.duration = collapseDuration
-                    back.timingFunction = CAMediaTimingFunction(name: .easeIn)
-                    back.fillMode = .forwards
-                    back.isRemovedOnCompletion = false
-                    gradient.add(back, forKey: "td.collapseLocations")
+            for layer in group where !collapsingLayers.contains(where: { $0 === layer }) {
+                guard let presented = layer.presentation() else {
+                    // Never drawn yet: nothing to reverse.
+                    layer.removeAnimation(forKey: "td.locations")
+                    layer.removeAnimation(forKey: "td.envelope")
+                    continue
                 }
+                let fromOpacity = presented.opacity
+                let gradient = layer as? CAGradientLayer
+                let fromLocations = (presented as? CAGradientLayer)?.locations ?? gradient?.locations
+                let start = gradient?.value(forKey: Self.startLocationsKey) as? [NSNumber]
+                collapsingLayers.append(layer)
+                withoutImplicitAnimations {
+                    layer.removeAnimation(forKey: "td.locations")
+                    layer.removeAnimation(forKey: "td.envelope")
+                    layer.opacity = 0
+                    if let gradient, let start { gradient.locations = start }
+                }
+                runTransaction(generation: gen, animations: {
+                    let fade = CABasicAnimation(keyPath: "opacity")
+                    fade.fromValue = fromOpacity
+                    fade.toValue = 0
+                    fade.duration = collapseDuration
+                    fade.timingFunction = CAMediaTimingFunction(name: .easeIn)
+                    layer.add(fade, forKey: "td.collapseOpacity")
+                    if let gradient, let start, let fromLocations {
+                        let back = CABasicAnimation(keyPath: "locations")
+                        back.fromValue = fromLocations
+                        back.toValue = start
+                        back.duration = collapseDuration
+                        back.timingFunction = CAMediaTimingFunction(name: .easeIn)
+                        gradient.add(back, forKey: "td.collapseLocations")
+                    }
+                }, completion: { [weak self] in
+                    guard let self else { return }
+                    self.collapsingLayers.removeAll { $0 === layer }
+                    self.recycle(layer)
+                })
             }
         }
     }

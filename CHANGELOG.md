@@ -4,6 +4,16 @@ All notable changes to TouchDynamics are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.2.1] - 2026-10-29
+
+### Fixed
+- The re-press reversal did not actually reverse the wave on the Core
+  Animation renderer: a collapse animation added on top of the running
+  keyframe animation never took effect, so the wave kept travelling. The
+  running animations are now replaced from their presentation values, and a
+  test reads the layer's presentation values across a re-press to prove the
+  front runs back and the wave fades.
+
 ## [1.2.0] - 2026-10-29
 
 ### Added

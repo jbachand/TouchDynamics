@@ -223,23 +223,28 @@ final class UIKitIntegrationTests: XCTestCase {
         XCTAssertEqual(light.opacity, 1)
         XCTAssertEqual(light.position, CGPoint(x: 60, y: 20), "slides under the new finger")
         for wave in waves {
-            XCTAssertNotNil(wave.animation(forKey: "td.collapseOpacity"), "the wave collapses")
-            XCTAssertNotNil(wave.animation(forKey: "td.collapseLocations"), "the wave runs back to its origin")
+            XCTAssertNil(wave.animation(forKey: "td.locations"), "the outward wave animation is gone")
+            XCTAssertNil(wave.animation(forKey: "td.envelope"))
         }
         XCTAssertNotEqual(view.transform, .identity, "deformation retargets to the pressed state")
         XCTAssertEqual(attachment.state, .pressing)
 
-        // The superseded lift settles once its collapsed wave's transaction
-        // completes (the wave's original duration bounds it).
+        // The superseded lift settles once Core Animation commits the removal
+        // of its wave animations.
         let deadline = Date().addingTimeInterval(1.5)
         while attachment.engine.session(for: .test(1)) != nil, Date() < deadline {
             RunLoop.main.run(until: Date().addingTimeInterval(0.05))
         }
         XCTAssertNil(attachment.engine.session(for: .test(1)), "the old session has settled")
         XCTAssertEqual(attachment.engine.session(for: .test(2))?.phase, .pressing)
-        XCTAssertEqual(host.layer.sublayers?.count, 1, "the collapsed wave was recycled; the adopted light stays")
         XCTAssertTrue(host.layer.sublayers!.contains { $0 === light })
-        XCTAssertEqual(renderer.ownedLayerCount, 1)
+        // Collapsed waves are recycled when their collapse ends.
+        let recycled = Date().addingTimeInterval(1.5)
+        while renderer.ownedLayerCount > 1, Date() < recycled {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        }
+        XCTAssertEqual(renderer.ownedLayerCount, 1, "the collapsed wave was recycled; the adopted light stays")
+        XCTAssertEqual(host.layer.sublayers?.count, 1)
 
         // The second lift works normally.
         attachment.engine.handle(.ended(id: .test(2), location: CGPoint(x: 60, y: 20), time: 0.4))
@@ -590,6 +595,47 @@ final class SwiftUIHitTestingTests: XCTestCase {
             if let found = findHost(in: sub) { return found }
         }
         return nil
+    }
+}
+#endif
+
+#if canImport(UIKit)
+@MainActor
+final class WaveReversalPresentationTests: XCTestCase {
+    func testCollapsedWaveRunsBackwardsOnTheRenderServer() {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        window.rootViewController = UIViewController()
+        window.isHidden = false
+        let view = UIView(frame: CGRect(x: 0, y: 0, width: 300, height: 80))
+        window.addSubview(view)
+        let attachment = TouchDynamics.attach(to: view, configuration: .fluid)
+        let host = view.subviews.first as! EffectHostView
+
+        attachment.engine.handle(.began(id: .test(1), location: CGPoint(x: 40, y: 40), time: 0))
+        attachment.engine.handle(.ended(id: .test(1), location: CGPoint(x: 40, y: 40), time: 0.1))
+        let ring = host.layer.sublayers!.compactMap { $0 as? CAGradientLayer }.first { ($0.locations?.count ?? 0) == 5 }!
+
+        // Let the wave travel.
+        RunLoop.main.run(until: Date().addingTimeInterval(0.15))
+        let front0 = ring.presentation()!.locations![2].doubleValue
+        let opacity0 = ring.presentation()!.opacity
+        print("TD-WAVE before re-press front=\(front0) opacity=\(opacity0)")
+        XCTAssertGreaterThan(front0, 0.05, "the wave has travelled before the re-press")
+
+        // Re-press during the wave.
+        attachment.engine.handle(.began(id: .test(2), location: CGPoint(x: 60, y: 40), time: 0.25))
+        RunLoop.main.run(until: Date().addingTimeInterval(0.08))
+        let front1 = ring.presentation()!.locations![2].doubleValue
+        let opacity1 = ring.presentation()!.opacity
+        print("TD-WAVE mid-collapse front=\(front1) opacity=\(opacity1)")
+        XCTAssertLessThan(front1, front0, "the front runs back toward the origin")
+        XCTAssertLessThan(opacity1, opacity0, "the wave fades while collapsing")
+
+        RunLoop.main.run(until: Date().addingTimeInterval(0.15))
+        let front2 = ring.presentation()?.locations?[2].doubleValue ?? 0
+        let opacity2 = ring.presentation()?.opacity ?? 0
+        print("TD-WAVE after collapse front=\(front2) opacity=\(opacity2) inTree=\(ring.superlayer != nil)")
+        XCTAssertLessThan(opacity2, 0.02, "the collapsed wave is gone")
     }
 }
 #endif

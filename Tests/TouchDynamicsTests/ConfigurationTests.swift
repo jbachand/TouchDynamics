@@ -72,7 +72,7 @@ final class ConfigurationTests: XCTestCase {
     }
 
     func testVersion() {
-        XCTAssertEqual(TouchDynamics.version, "1.2.0")
+        XCTAssertEqual(TouchDynamics.version, "1.2.1")
     }
 
     func testTouchIdentifierFromObjectIsStable() {
