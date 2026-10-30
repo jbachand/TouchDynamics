@@ -198,6 +198,76 @@ final class UIKitIntegrationTests: XCTestCase {
         if case .release(_, let ripple) = seen[1] { XCTAssertTrue(ripple) } else { XCTFail("expected a release") }
     }
 
+    func testRepressDuringLiftReversesTheLift() {
+        let window = makeWindow()
+        let view = UIView(frame: CGRect(x: 0, y: 0, width: 200, height: 44))
+        window.addSubview(view)
+        let attachment = TouchDynamics.attach(to: view)
+        let host = view.subviews.first as! EffectHostView
+        let renderer = attachment.presenter.renderer as! CoreAnimationSurfaceRenderer
+
+        attachment.engine.handle(.began(id: .test(1), location: CGPoint(x: 30, y: 20), time: 0))
+        let light = renderer.illuminationLayer(for: .test(1))!
+        attachment.engine.handle(.ended(id: .test(1), location: CGPoint(x: 30, y: 20), time: 0.1))
+        XCTAssertNotNil(light.animation(forKey: "td.fade"))
+        XCTAssertEqual(host.layer.sublayers?.count, 3, "fading light plus disc and ring")
+        let waves = host.layer.sublayers!.filter { $0 !== light }
+
+        // Press again before the lift finishes.
+        attachment.engine.handle(.began(id: .test(2), location: CGPoint(x: 60, y: 20), time: 0.15))
+        XCTAssertEqual(host.layer.sublayers?.count, 3, "no new light; the fading one is adopted")
+        let adopted = renderer.illuminationLayer(for: .test(2))
+        XCTAssertTrue(adopted === light, "the fading light is the live light again")
+        XCTAssertNil(light.animation(forKey: "td.fade"))
+        XCTAssertNotNil(light.animation(forKey: "td.opacity"), "ramping back up")
+        XCTAssertEqual(light.opacity, 1)
+        XCTAssertEqual(light.position, CGPoint(x: 60, y: 20), "slides under the new finger")
+        for wave in waves {
+            XCTAssertNotNil(wave.animation(forKey: "td.collapseOpacity"), "the wave collapses")
+            XCTAssertNotNil(wave.animation(forKey: "td.collapseLocations"), "the wave runs back to its origin")
+        }
+        XCTAssertNotEqual(view.transform, .identity, "deformation retargets to the pressed state")
+        XCTAssertEqual(attachment.state, .pressing)
+
+        // The superseded lift settles once its collapsed wave's transaction
+        // completes (the wave's original duration bounds it).
+        let deadline = Date().addingTimeInterval(1.5)
+        while attachment.engine.session(for: .test(1)) != nil, Date() < deadline {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        }
+        XCTAssertNil(attachment.engine.session(for: .test(1)), "the old session has settled")
+        XCTAssertEqual(attachment.engine.session(for: .test(2))?.phase, .pressing)
+        XCTAssertEqual(host.layer.sublayers?.count, 1, "the collapsed wave was recycled; the adopted light stays")
+        XCTAssertTrue(host.layer.sublayers!.contains { $0 === light })
+        XCTAssertEqual(renderer.ownedLayerCount, 1)
+
+        // The second lift works normally.
+        attachment.engine.handle(.ended(id: .test(2), location: CGPoint(x: 60, y: 20), time: 0.4))
+        XCTAssertEqual(attachment.state, .releasing)
+        XCTAssertNotNil(light.animation(forKey: "td.fade"))
+    }
+
+    func testSupersededDeformationReportsDone() {
+        let view = UIView(frame: CGRect(x: 0, y: 0, width: 200, height: 44))
+        let driver = ViewTransformDeformationDriver(view: view)
+        let pressed = DeformationState(scaleX: 0.97, scaleY: 0.97, anchor: CGPoint(x: 30, y: 20))
+        driver.apply(pressed, animation: .none, completion: nil)
+        var settled = 0
+        driver.apply(.identity(anchor: CGPoint(x: 30, y: 20)), animation: .spring(SpringSolver()), completion: { settled += 1 })
+        XCTAssertEqual(settled, 0)
+        driver.apply(pressed, animation: .easeOut(duration: 0.1), completion: nil)
+        XCTAssertEqual(settled, 1, "a new target reports the superseded move done")
+        XCTAssertFalse(driver.currentState.isIdentity)
+        XCTAssertNotEqual(view.transform, .identity)
+
+        var closureSettled = 0
+        let closure = ClosureDeformationDriver { _, _ in }
+        closure.apply(.identity, animation: .spring(SpringSolver()), completion: { closureSettled += 1 })
+        XCTAssertEqual(closureSettled, 0)
+        closure.apply(pressed, animation: .easeOut(duration: 0.1), completion: nil)
+        XCTAssertEqual(closureSettled, 1)
+    }
+
     func testRapidRepeatedTapsAreBounded() {
         let window = makeWindow()
         let view = UIView(frame: CGRect(x: 0, y: 0, width: 200, height: 44))

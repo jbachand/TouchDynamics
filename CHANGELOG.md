@@ -4,6 +4,21 @@ All notable changes to TouchDynamics are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] - 2026-10-29
+
+### Added
+- A press during the previous lift reverses the lift instead of starting
+  over: the fading light is adopted, ramps back up and slides under the new
+  finger; the wave collapses back to its origin; the spring retargets to the
+  pressed state. The superseded lift reports settled immediately so its
+  session clears. Core Animation and Metal renderers, UIKit and SwiftUI
+  deformation drivers.
+
+### Fixed
+- Example UI tests: the hold-then-scroll test now waits for the scroll bounce
+  to settle before pressing again and verifies the second press through the
+  engine command log, which removes a flake on slow CI runners.
+
 ## [1.1.1] - 2026-10-28
 
 ### Changed

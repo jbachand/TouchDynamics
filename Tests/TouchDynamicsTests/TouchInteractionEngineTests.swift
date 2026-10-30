@@ -27,6 +27,20 @@ final class TouchInteractionEngineTests: XCTestCase {
         XCTAssertTrue(engine.sessions.isEmpty)
     }
 
+    func testRepressDuringReleaseStartsANewSession() {
+        let (engine, rec) = makeEngine()
+        engine.handle(.began(id: .test(1), location: CGPoint(x: 30, y: 20), time: 0))
+        engine.handle(.ended(id: .test(1), location: CGPoint(x: 30, y: 20), time: 0.1))
+        XCTAssertEqual(engine.state, .releasing)
+        engine.handle(.began(id: .test(2), location: CGPoint(x: 60, y: 20), time: 0.15))
+        XCTAssertEqual(rec.illuminates.count, 2)
+        XCTAssertEqual(engine.state, .pressing, "the new press outranks the old lift")
+        XCTAssertEqual(engine.session(for: .test(1))?.phase, .releasing)
+        engine.effectDidSettle(.test(1))
+        XCTAssertEqual(engine.sessions.map(\.id), [.test(2)])
+        XCTAssertEqual(engine.state, .pressing)
+    }
+
     func testMovementWithinSlopStaysPressingAndTracks() {
         let (engine, rec) = makeEngine()
         let id = TouchIdentifier.test(1)

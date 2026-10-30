@@ -69,6 +69,19 @@ final class GesturePassThroughUITests: XCTestCase {
         return sum / Double(w * h)
     }
 
+    /// Waits until `element`'s frame stops changing (a scroll bounce settled).
+    private func stableFrame(of element: XCUIElement, timeout: TimeInterval = 6) -> CGRect {
+        let deadline = Date().addingTimeInterval(timeout)
+        var previous = element.frame
+        while Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.35)
+            let current = element.frame
+            if current == previous { return current }
+            previous = current
+        }
+        return previous
+    }
+
     private func luminanceNow(_ rect: CGRect, pointsWidth: CGFloat) -> Double {
         Self.meanLuminance(of: XCUIScreen.main.screenshot().image, in: rect, pointsWidth: pointsWidth)
     }
@@ -91,42 +104,53 @@ final class GesturePassThroughUITests: XCTestCase {
     }
 
     func testHoldThenScrollLeavesTheRowResponsive() {
-        let app = launch(mode: "full")
+        let logPath = "/tmp/td-commands-holdscroll.txt"
+        try? FileManager.default.removeItem(atPath: logPath)
+        let app = XCUIApplication()
+        app.launchArguments = ["-td-preset", "fluid", "-td-mode", "full", "-td-log", logPath]
+        app.launch()
         let firstComment = app.staticTexts["This is exactly the kind of micro-interaction that makes an app feel alive."].firstMatch
         XCTAssertTrue(firstComment.waitForExistence(timeout: 15))
-        Thread.sleep(forTimeInterval: 0.5)
 
         // Baseline: a hold lights the row (darker in light appearance, brighter in dark).
         let width = app.frame.width
-        var rect = firstComment.frame
+        var rect = stableFrame(of: firstComment)
         let point = firstComment.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.5))
         let rest = luminanceNow(rect, pointsWidth: width)
         let lit = luminanceDuringHold(at: point, rect: rect, pointsWidth: width, name: "hold-before")
-        XCTAssertGreaterThan(abs(lit - rest), 4, "a hold illuminates the row (rest \(rest), lit \(lit))")
+        let samplerWorks = abs(lit - rest) > 4
+        XCTAssertTrue(samplerWorks, "a hold illuminates the row (rest \(rest), lit \(lit))")
         Thread.sleep(forTimeInterval: 0.8)
 
         // Hold, then let the page scroll under the finger.
         let dragEnd = point.withOffset(CGVector(dx: 0, dy: -260))
-        point.press(forDuration: 0.9, thenDragTo: dragEnd)
+        point.press(forDuration: 0.9, thenDragTo: dragEnd, withVelocity: .default, thenHoldForDuration: 0.3)
         Thread.sleep(forTimeInterval: 0.6)
         XCTAssertLessThan(firstComment.frame.minY, rect.minY - 120, "the list scrolled during the hold")
         snapshot("after-hold-scroll")
 
-        // Scroll back to the top.
-        for _ in 0..<4 where !(firstComment.exists && firstComment.frame.minY >= rect.minY - 2) {
+        // Scroll back to the top without momentum and wait for it to settle.
+        for _ in 0..<4 {
+            let settled = stableFrame(of: firstComment, timeout: 4)
+            if firstComment.exists, abs(settled.minY - rect.minY) <= 2 { break }
             let mid = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45))
-            mid.press(forDuration: 0.1, thenDragTo: mid.withOffset(CGVector(dx: 0, dy: 320)))
-            Thread.sleep(forTimeInterval: 1.0)
+            mid.press(forDuration: 0.1, thenDragTo: mid.withOffset(CGVector(dx: 0, dy: 320)), withVelocity: .default, thenHoldForDuration: 0.3)
         }
+        rect = stableFrame(of: firstComment)
         XCTAssertTrue(firstComment.isHittable, "first row is back on screen")
-        rect = firstComment.frame
-        try? "before scroll-back rect \(rect)\n".write(toFile: "/tmp/td-result-holdscroll-rect.txt", atomically: true, encoding: .utf8)
+        XCTAssertEqual(rect.minY, firstComment.frame.minY, accuracy: 2, "the list has settled")
 
-        // The same row must light again, and a tap must still work.
+        // The same row must take a touch again (engine log), light again, and take a tap.
         let restAfter = luminanceNow(rect, pointsWidth: width)
         let litAfter = luminanceDuringHold(at: firstComment.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.5)), rect: rect, pointsWidth: width, name: "hold-after")
-        try? "rest=\(rest) lit=\(lit) restAfter=\(restAfter) litAfter=\(litAfter) width=\(width)\n".write(toFile: "/tmp/td-result-holdscroll.txt", atomically: true, encoding: .utf8)
-        XCTAssertGreaterThan(abs(litAfter - restAfter), 4, "after a hold-then-scroll the row still illuminates (rest \(restAfter), lit \(litAfter))")
+        let log = (try? String(contentsOfFile: logPath, encoding: .utf8)) ?? ""
+        let lines = log.split(separator: "\n").map(String.init)
+        let illuminates = lines.filter { $0.hasPrefix("illuminate") }.count
+        try? "rest=\(rest) lit=\(lit) restAfter=\(restAfter) litAfter=\(litAfter) width=\(width) illuminates=\(illuminates)\n".write(toFile: "/tmp/td-result-holdscroll-luminance.txt", atomically: true, encoding: .utf8)
+        XCTAssertGreaterThanOrEqual(illuminates, 3, "the row took a touch-down after the hold-then-scroll: \(lines.suffix(8))")
+        if samplerWorks {
+            XCTAssertGreaterThan(abs(litAfter - restAfter), 4, "after a hold-then-scroll the row still illuminates (rest \(restAfter), lit \(litAfter))")
+        }
         Thread.sleep(forTimeInterval: 0.8)
         checkTapTogglesLike(app, mode: "holdscroll")
     }

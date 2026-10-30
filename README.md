@@ -5,6 +5,7 @@ Physically responsive touch feedback for any iOS view, in one line.
 - **Touch illumination** — a Gaussian light appears under the finger the frame it lands, and follows it.
 - **Release ripple** — a soft disc and wavefront ring leave from where the finger lifted and fade as they cover the view.
 - **Elastic deformation** — the content yields toward the finger and springs back; layout never changes.
+- **Interruptible** — a press during the previous lift reverses it: the light comes back under the finger, the wave collapses, the spring retargets.
 - **Gesture-safe** — touches are observed, never claimed. Scrolling, swiping, navigation, buttons and cell selection work exactly as before.
 - **Universal** — SwiftUI views, UIKit views and controls, table/collection cells, nested scroll containers.
 - **Accessible** — Reduce Motion, Reduce Transparency and VoiceOver are respected by default.
@@ -162,7 +163,7 @@ The demo starts on the `.subtle` preset; the Tuning tab switches presets and edi
 
 ## Status and roadmap
 
-This is the v1.0 implementation of the PRD, verified on the iOS Simulator by 86 unit/integration tests and 4 UI tests that exercise the real touch path. Two things are explicitly still open:
+This is the v1.0 implementation of the PRD, verified on the iOS Simulator by 99 unit/integration tests and 6 UI tests that exercise the real touch path. Two things are explicitly still open:
 
 - **Device measurement.** Frame-rate and onset budgets must be confirmed on hardware with Instruments, including the oldest supported devices. The architecture is built for it (no display link in the default renderer, bounded resources), but the numbers have not been taken yet.
 - **Shader-based displacement.** `DeformationMode.displacement` is accepted and renders as `anchoredScale` on every renderer in v1.0. Content-texture displacement is reserved for the Metal renderer in a later release.

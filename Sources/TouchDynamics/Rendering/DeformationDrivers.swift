@@ -14,6 +14,7 @@ final class ViewTransformDeformationDriver: DeformationDriving {
     private var baseTransform: CGAffineTransform?
     private var lastApplied: CGAffineTransform?
     private var animator: UIViewPropertyAnimator?
+    private var pendingCompletion: (@MainActor () -> Void)?
     private var isCompromised = false
 
     init(view: UIView) {
@@ -31,6 +32,18 @@ final class ViewTransformDeformationDriver: DeformationDriving {
             // Someone else owns the transform now.
             isCompromised = true
         }
+
+        // A new target supersedes the one in flight: stop where it is (that
+        // value is ours) and report the superseded move as done.
+        let superseded = pendingCompletion
+        pendingCompletion = nil
+        if let running = animator {
+            running.stopAnimation(true)
+            animator = nil
+            lastApplied = view.transform
+        }
+        superseded?()
+
         guard !isCompromised, let base = baseTransform else {
             completion?()
             return
@@ -38,31 +51,30 @@ final class ViewTransformDeformationDriver: DeformationDriving {
 
         currentState = state
         let target = state.affineTransform(in: view.bounds, origin: .center).concatenating(base)
-        animator?.stopAnimation(true)
-        animator = nil
 
-        let finish: @MainActor () -> Void = { [weak self] in
+        let settle: @MainActor () -> Void = { [weak self] in
             guard let self else { return }
             self.lastApplied = target
             if state.isIdentity {
                 self.baseTransform = nil
                 self.lastApplied = nil
             }
-            completion?()
         }
 
         switch animation {
         case .none:
             view.transform = target
-            finish()
+            settle()
+            completion?()
         case .easeOut(let duration) where duration <= 0:
             view.transform = target
-            finish()
+            settle()
+            completion?()
         case .easeOut(let duration):
             let a = UIViewPropertyAnimator(duration: duration, curve: .easeOut) {
                 view.transform = target
             }
-            run(a, finish: finish)
+            run(a, settle: settle, completion: completion)
         case .spring(let solver):
             let params = UISpringTimingParameters(
                 mass: solver.mass,
@@ -72,23 +84,29 @@ final class ViewTransformDeformationDriver: DeformationDriving {
             )
             let a = UIViewPropertyAnimator(duration: 0, timingParameters: params)
             a.addAnimations { view.transform = target }
-            run(a, finish: finish)
+            run(a, settle: settle, completion: completion)
         }
     }
 
-    private func run(_ a: UIViewPropertyAnimator, finish: @escaping @MainActor () -> Void) {
+    private func run(_ a: UIViewPropertyAnimator, settle: @escaping @MainActor () -> Void, completion: (@MainActor () -> Void)?) {
         a.isUserInteractionEnabled = true
         a.isInterruptible = true
+        pendingCompletion = completion
         a.addCompletion { [weak self] position in
             guard let self, self.animator === a else { return }
             self.animator = nil
-            if position == .end { finish() }
+            guard position == .end else { return }
+            settle()
+            let done = self.pendingCompletion
+            self.pendingCompletion = nil
+            done?()
         }
         animator = a
         a.startAnimation()
     }
 
     func reset() {
+        pendingCompletion = nil
         animator?.stopAnimation(true)
         animator = nil
         if let view, let base = baseTransform, !isCompromised {
@@ -110,6 +128,7 @@ final class ClosureDeformationDriver: DeformationDriving {
     private let sink: Sink
     private(set) var currentState: DeformationState = .identity
     private var generation = 0
+    private var pendingCompletion: (@MainActor () -> Void)?
 
     init(sink: @escaping Sink) {
         self.sink = sink
@@ -120,6 +139,10 @@ final class ClosureDeformationDriver: DeformationDriving {
         sink(state, animation)
         generation += 1
         let gen = generation
+        // SwiftUI retargets the running animation; the superseded move is done.
+        let superseded = pendingCompletion
+        pendingCompletion = nil
+        superseded?()
         let delay: TimeInterval
         switch animation {
         case .none:
@@ -134,15 +157,18 @@ final class ClosureDeformationDriver: DeformationDriving {
             completion()
             return
         }
+        pendingCompletion = completion
         Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             guard let self, self.generation == gen else { return }
+            self.pendingCompletion = nil
             completion()
         }
     }
 
     func reset() {
         generation += 1
+        pendingCompletion = nil
         guard !currentState.isIdentity else { return }
         currentState = .identity
         // Reset can run inside a SwiftUI view update (dismantle, window change);

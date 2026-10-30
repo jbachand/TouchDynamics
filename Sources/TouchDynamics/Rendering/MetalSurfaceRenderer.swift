@@ -34,7 +34,13 @@ final class MetalSurfaceRenderer: SurfaceRendering {
         var wave: RippleWave
         var startTime: TimeInterval
         var onFinish: @MainActor () -> Void
+        /// Set when a new press reverses the wave back to its origin.
+        var reverseStart: TimeInterval?
+        var reverseRadius: CGFloat = 0
+        var reverseEnvelope: CGFloat = 0
     }
+
+    private let reverseDuration: TimeInterval = 0.16
 
     private struct Flash {
         var opacity: CGFloat
@@ -126,6 +132,33 @@ final class MetalSurfaceRenderer: SurfaceRendering {
         let now = CACurrentMediaTime()
         var smoothing: TimeInterval = 0
         if case .follow(let s) = appearance.tracking { smoothing = s }
+        reverseRipples(at: now)
+        // A press during the previous lift resumes the fading light from its
+        // current strength and slides it under the new finger.
+        if let (oldID, old) = illuminations.filter({ $0.value.fadeStart != nil }).max(by: { $0.value.fadeStart! < $1.value.fadeStart! }) {
+            illuminations[oldID] = nil
+            let remaining = 1 - min(1, (now - old.fadeStart!) / old.fadeDuration)
+            var field: IlluminationField?
+            var flat: CGFloat = 0
+            switch appearance.illumination {
+            case .none:
+                old.completion?()
+                stopDisplayLinkIfIdle()
+                return
+            case .flat(let opacity):
+                flat = opacity
+            case .field(let f):
+                field = f
+            }
+            illuminations[session.id] = Illumination(
+                position: old.position, targetPosition: session.startLocation, field: field,
+                flatOpacity: flat, startTime: now - remaining * appearance.rampInDuration,
+                rampIn: appearance.rampInDuration, fadeDuration: appearance.fadeOutDuration, smoothing: smoothing
+            )
+            old.completion?()
+            startDisplayLinkIfNeeded()
+            return
+        }
         switch appearance.illumination {
         case .none:
             return
@@ -247,6 +280,16 @@ final class MetalSurfaceRenderer: SurfaceRendering {
         metalView?.isHidden = true
     }
 
+    /// Runs every in-flight wave backwards to its origin.
+    private func reverseRipples(at now: TimeInterval) {
+        for i in ripples.indices where ripples[i].reverseStart == nil {
+            let t = now - ripples[i].startTime
+            ripples[i].reverseRadius = ripples[i].wave.radius(at: t)
+            ripples[i].reverseEnvelope = ripples[i].wave.envelope(at: t)
+            ripples[i].reverseStart = now
+        }
+    }
+
     private func beginFade(for id: TouchIdentifier, duration: TimeInterval, at now: TimeInterval, completion: @escaping @MainActor () -> Void) {
         guard var record = illuminations[id] else {
             completion()
@@ -340,15 +383,24 @@ final class MetalSurfaceRenderer: SurfaceRendering {
         // Waves.
         ripples.removeAll { ripple in
             let t = now - ripple.startTime
-            if t >= ripple.wave.duration {
+            var env = ripple.wave.envelope(at: t)
+            var radius = ripple.wave.radius(at: t)
+            if let reverseStart = ripple.reverseStart {
+                let k = 1 - min(1, (now - reverseStart) / reverseDuration)
+                if k <= 0 {
+                    finished.append(ripple.onFinish)
+                    return true
+                }
+                env = ripple.reverseEnvelope * CGFloat(k)
+                radius = ripple.reverseRadius * CGFloat(k)
+            } else if t >= ripple.wave.duration {
                 finished.append(ripple.onFinish)
                 return true
             }
             guard count < Self.maximumTouches else { return false }
             var u = MetalTouch()
             u.position = SIMD2<Float>(Float(ripple.origin.x), Float(ripple.origin.y))
-            let env = ripple.wave.envelope(at: t)
-            u.ringRadius = Float(ripple.wave.radius(at: t))
+            u.ringRadius = Float(radius)
             u.ringWidth = Float(ripple.wave.wavefrontWidth)
             if ripple.wave.profile != .softGradient {
                 u.ringAmplitude = Float(ripple.wave.peakIntensity * env)

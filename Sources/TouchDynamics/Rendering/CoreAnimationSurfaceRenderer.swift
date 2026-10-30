@@ -45,10 +45,22 @@ final class CoreAnimationSurfaceRenderer: SurfaceRendering {
         if let stale = illuminationLayers.removeValue(forKey: session.id) {
             discard(stale)
         }
+        // A press during the previous lift reverses that lift: the wave
+        // collapses back and the fading light comes back under the finger.
+        collapseActiveRipples()
         switch appearance.illumination {
         case .none:
             return
         case .flat(let opacity):
+            if let adopted = adoptFadingLayer(flat: true) {
+                withoutImplicitAnimations {
+                    adopted.frame = host.bounds
+                    adopted.backgroundColor = colors.illumination.scaledAlpha(opacity)
+                }
+                illuminationLayers[session.id] = adopted
+                rampBack(adopted, duration: appearance.rampInDuration)
+                return
+            }
             let layer = CALayer()
             layer.frame = host.bounds
             layer.backgroundColor = colors.illumination.scaledAlpha(opacity)
@@ -58,6 +70,15 @@ final class CoreAnimationSurfaceRenderer: SurfaceRendering {
             illuminationLayers[session.id] = layer
             animateOpacity(of: layer, to: 1, duration: appearance.rampInDuration)
         case .field(let field):
+            if let adopted = adoptFadingLayer(flat: false) as? CAGradientLayer {
+                withoutImplicitAnimations {
+                    configureField(adopted, field: field, color: colors.illumination)
+                }
+                illuminationLayers[session.id] = adopted
+                rampBack(adopted, duration: appearance.rampInDuration)
+                slide(adopted, to: session.startLocation, duration: appearance.rampInDuration)
+                return
+            }
             let layer = dequeueGradient()
             configureField(layer, field: field, color: colors.illumination)
             layer.position = session.startLocation
@@ -322,7 +343,105 @@ final class CoreAnimationSurfaceRenderer: SurfaceRendering {
         // Model values sit at the end state; the animations carry the motion.
         layer.locations = frames.last
         layer.opacity = 0
+        layer.setValue(frames.first, forKey: Self.startLocationsKey)
         return WaveLayer(layer: layer, locations: loc, opacity: op)
+    }
+
+    // MARK: Reversal
+
+    private static let startLocationsKey = "td.startLocations"
+    private let collapseDuration: TimeInterval = 0.16
+
+    /// The live illumination layer for `id` (tests and diagnostics).
+    func illuminationLayer(for id: TouchIdentifier) -> CALayer? {
+        illuminationLayers[id]
+    }
+
+    /// Takes over the most recent fading illumination layer of the given
+    /// kind, cancelling its fade. The fade transaction's completion still
+    /// fires (its animation was removed) but no longer discards the layer.
+    private func adoptFadingLayer(flat: Bool) -> CALayer? {
+        guard let index = fadingLayers.lastIndex(where: { flatLayers.contains(ObjectIdentifier($0)) == flat }) else { return nil }
+        let layer = fadingLayers.remove(at: index)
+        let presented = layer.presentation()?.opacity ?? layer.opacity
+        withoutImplicitAnimations {
+            layer.removeAnimation(forKey: "td.fade")
+            layer.opacity = presented
+        }
+        return layer
+    }
+
+    /// Brings a fading layer back to full strength from where it is now.
+    private func rampBack(_ layer: CALayer, duration: TimeInterval) {
+        let fromOpacity = layer.presentation()?.opacity ?? layer.opacity
+        let fromScale = (layer.presentation()?.value(forKeyPath: "transform.scale") as? CGFloat) ?? 1
+        withoutImplicitAnimations {
+            layer.opacity = 1
+            layer.transform = CATransform3DIdentity
+        }
+        let opacity = CABasicAnimation(keyPath: "opacity")
+        opacity.fromValue = fromOpacity
+        opacity.toValue = 1
+        opacity.duration = max(0.001, duration)
+        opacity.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        layer.add(opacity, forKey: "td.opacity")
+        if abs(fromScale - 1) > 0.001 {
+            let scale = CABasicAnimation(keyPath: "transform.scale")
+            scale.fromValue = fromScale
+            scale.toValue = 1
+            scale.duration = max(0.001, duration)
+            scale.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            layer.add(scale, forKey: "td.emphasis")
+        }
+    }
+
+    /// Moves an illumination layer to a new finger position.
+    private func slide(_ layer: CALayer, to position: CGPoint, duration: TimeInterval) {
+        let from = layer.presentation()?.position ?? layer.position
+        withoutImplicitAnimations { layer.position = position }
+        let anim = CABasicAnimation(keyPath: "position")
+        anim.fromValue = NSValue(cgPoint: from)
+        anim.toValue = NSValue(cgPoint: position)
+        anim.duration = max(0.001, duration)
+        anim.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        layer.add(anim, forKey: "td.position")
+    }
+
+    /// Runs every in-flight wave backwards to its origin and fades it out.
+    /// The wave's own transaction still completes on schedule and recycles
+    /// the layers, which are invisible by then.
+    private func collapseActiveRipples() {
+        for group in rippleLayers {
+            for layer in group where layer.animation(forKey: "td.collapseOpacity") == nil {
+                let fromOpacity = layer.presentation()?.opacity ?? layer.opacity
+                let fade = CABasicAnimation(keyPath: "opacity")
+                fade.fromValue = fromOpacity
+                fade.toValue = 0
+                fade.duration = collapseDuration
+                fade.timingFunction = CAMediaTimingFunction(name: .easeIn)
+                fade.fillMode = .forwards
+                fade.isRemovedOnCompletion = false
+                layer.add(fade, forKey: "td.collapseOpacity")
+                if let gradient = layer as? CAGradientLayer,
+                   let start = gradient.value(forKey: Self.startLocationsKey) as? [NSNumber] {
+                    let back = CABasicAnimation(keyPath: "locations")
+                    back.fromValue = gradient.presentation()?.locations ?? gradient.locations
+                    back.toValue = start
+                    back.duration = collapseDuration
+                    back.timingFunction = CAMediaTimingFunction(name: .easeIn)
+                    back.fillMode = .forwards
+                    back.isRemovedOnCompletion = false
+                    gradient.add(back, forKey: "td.collapseLocations")
+                }
+            }
+        }
+    }
+
+    private func withoutImplicitAnimations(_ body: () -> Void) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        body()
+        CATransaction.commit()
     }
 
     // MARK: Helpers
@@ -356,8 +475,11 @@ final class CoreAnimationSurfaceRenderer: SurfaceRendering {
             layer.add(anim, forKey: "td.fade")
         }, completion: { [weak self] in
             guard let self else { return }
-            self.fadingLayers.removeAll { $0 === layer }
-            self.discard(layer)
+            // An adopted layer has left `fadingLayers` and lives on.
+            if let index = self.fadingLayers.firstIndex(where: { $0 === layer }) {
+                self.fadingLayers.remove(at: index)
+                self.discard(layer)
+            }
             completion()
         })
     }
