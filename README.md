@@ -163,7 +163,7 @@ The demo starts on the `.subtle` preset; the Tuning tab switches presets and edi
 
 ## Status and roadmap
 
-This is the v1.0 implementation of the PRD, verified on the iOS Simulator by 100 unit/integration tests and 6 UI tests that exercise the real touch path. Two things are explicitly still open:
+This is the v1.0 implementation of the PRD, verified on the iOS Simulator by 101 unit/integration tests and 8 UI tests that exercise the real touch path. Two things are explicitly still open:
 
 - **Device measurement.** Frame-rate and onset budgets must be confirmed on hardware with Instruments, including the oldest supported devices. The architecture is built for it (no display link in the default renderer, bounded resources), but the numbers have not been taken yet.
 - **Shader-based displacement.** `DeformationMode.displacement` is accepted and renders as `anchoredScale` on every renderer in v1.0. Content-texture displacement is reserved for the Metal renderer in a later release.

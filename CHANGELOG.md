@@ -4,6 +4,17 @@ All notable changes to TouchDynamics are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.2.3] - 2026-10-30
+
+### Fixed
+- The re-press reversal was invisible at human double-tap speed. A wave was
+  only reversible until it had travelled, about 0.4 s, and the pull-back
+  faded from whatever faint value was left. A finished wave now stays
+  reversible for at least 0.6 s more (about a second after the lift), and the
+  pull-back brightens toward the wave's launch intensity as it contracts into
+  the finger, so a slow double tap visibly draws the wave back. Core
+  Animation and Metal.
+
 ## [1.2.2] - 2026-10-29
 
 ### Fixed

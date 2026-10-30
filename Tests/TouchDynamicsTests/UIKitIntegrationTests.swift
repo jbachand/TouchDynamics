@@ -252,6 +252,49 @@ final class UIKitIntegrationTests: XCTestCase {
         XCTAssertNotNil(light.animation(forKey: "td.fade"))
     }
 
+    func testFinishedWaveLingersAndCanBePulledBack() {
+        let window = makeWindow()
+        let view = UIView(frame: CGRect(x: 0, y: 0, width: 200, height: 44))
+        window.addSubview(view)
+        var config = TouchDynamicsConfiguration.fluid
+        config.ripple.duration = 0.2
+        let attachment = TouchDynamics.attach(to: view, configuration: config)
+        let host = view.subviews.first as! EffectHostView
+        let renderer = attachment.presenter.renderer as! CoreAnimationSurfaceRenderer
+
+        attachment.engine.handle(.began(id: .test(1), location: CGPoint(x: 30, y: 20), time: 0))
+        attachment.engine.handle(.ended(id: .test(1), location: CGPoint(x: 30, y: 20), time: 0.1))
+        let waves = host.layer.sublayers!.compactMap { $0 as? CAGradientLayer }.filter { $0.bounds.width > 300 }
+        XCTAssertEqual(waves.count, 2)
+
+        // Wait for the wave to finish travelling: its layers linger, invisible.
+        let finished = Date().addingTimeInterval(2)
+        while renderer.lingeringWaveCount == 0, Date() < finished {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.02))
+        }
+        XCTAssertEqual(renderer.lingeringWaveCount, 1, "the finished wave lingers")
+        XCTAssertTrue(waves.allSatisfy { $0.superlayer != nil }, "lingering layers stay in the tree, invisible")
+        XCTAssertEqual(attachment.engine.session(for: .test(1))?.phase, .settling, "the lift reported its ripple done; the spring is still settling")
+
+        // A re-press during the linger pulls it back from the edge.
+        attachment.engine.handle(.began(id: .test(2), location: CGPoint(x: 40, y: 20), time: 0.4))
+        XCTAssertTrue(waves.allSatisfy { $0.animation(forKey: "td.collapseLocations") != nil })
+        let recycled = Date().addingTimeInterval(2)
+        while renderer.ownedLayerCount > 1, Date() < recycled {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.02))
+        }
+        XCTAssertEqual(renderer.ownedLayerCount, 1, "the pulled-back wave is recycled; the new light stays")
+        XCTAssertEqual(renderer.lingeringWaveCount, 0)
+
+        // Without a re-press, a finished wave is recycled on its own after its grace window.
+        attachment.engine.handle(.ended(id: .test(2), location: CGPoint(x: 40, y: 20), time: 0.5))
+        let gone = Date().addingTimeInterval(3)
+        while renderer.ownedLayerCount > 0, Date() < gone {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.02))
+        }
+        XCTAssertEqual(renderer.ownedLayerCount, 0)
+    }
+
     func testSupersededDeformationReportsDone() {
         let view = UIView(frame: CGRect(x: 0, y: 0, width: 200, height: 44))
         let driver = ViewTransformDeformationDriver(view: view)
@@ -647,13 +690,13 @@ final class WaveReversalPresentationTests: XCTestCase {
             guard let p = ring.presentation(), let loc = p.locations, loc.count == 5 else { continue }
             front1 = loc[2].doubleValue
             opacity1 = p.opacity
-            if front1 < front0 - 0.03, opacity1 < opacity0 {
+            if front1 < front0 - 0.03 {
                 reversed = true
                 break
             }
         }
         print("TD-WAVE mid-collapse front=\(front1) opacity=\(opacity1) reversed=\(reversed)")
-        XCTAssertTrue(reversed, "the front runs back toward the origin and fades (front \(front0) → \(front1), opacity \(opacity0) → \(opacity1))")
+        XCTAssertTrue(reversed, "the front runs back toward the origin (front \(front0) → \(front1), opacity \(opacity0) → \(opacity1))")
 
         // The collapsed wave is recycled when its collapse ends.
         let recycleDeadline = Date().addingTimeInterval(2.0)

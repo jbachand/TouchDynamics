@@ -11,10 +11,12 @@ final class CoreAnimationSurfaceRenderer: SurfaceRendering {
     private var illuminationLayers: [TouchIdentifier: CALayer] = [:]
     /// Layers fading out after their session ended; owned until removed.
     private var fadingLayers: [CALayer] = []
-    /// Wave layers running back to their origin after a re-press.
-    private var collapsingLayers: [CALayer] = []
     private var flatLayers: Set<ObjectIdentifier> = []
-    private var rippleLayers: [[CALayer]] = []
+    /// Emitted waves: travelling, lingering (finished but still reversible),
+    /// or collapsing back into the finger.
+    private var waves: [WaveRecord] = []
+    /// Reduce Motion flashes.
+    private var flashes: [CALayer] = []
     private var pool: [CAGradientLayer] = []
     private var generation = 0
     private let maximumRipples: Int
@@ -164,20 +166,18 @@ final class CoreAnimationSurfaceRenderer: SurfaceRendering {
             let flash = CALayer()
             flash.frame = host.bounds
             flash.backgroundColor = colors.ripple.scaledAlpha(flashOpacity)
-            flash.opacity = 1
+            flash.opacity = 0
             host.layer.addSublayer(flash)
-            track(ripple: [flash])
+            flashes.append(flash)
             runTransaction(generation: gen, animations: {
                 let anim = CABasicAnimation(keyPath: "opacity")
                 anim.fromValue = 1
                 anim.toValue = 0
                 anim.duration = duration
                 anim.timingFunction = CAMediaTimingFunction(name: .easeIn)
-                anim.fillMode = .forwards
-                anim.isRemovedOnCompletion = false
                 flash.add(anim, forKey: "td.flash")
             }, completion: { [weak self] in
-                self?.untrack(ripple: [flash])
+                self?.flashes.removeAll { $0 === flash }
                 flash.removeAllAnimations()
                 flash.removeFromSuperlayer()
                 rippleDidFinish()
@@ -197,11 +197,10 @@ final class CoreAnimationSurfaceRenderer: SurfaceRendering {
                 coverage = base * k
             }
             let wave = RippleWave(coverageRadius: coverage, wavefrontWidth: width, duration: duration, decay: decay, peakIntensity: peak, profile: profile)
-            let layers = emitWave(wave, at: originPoint, color: colors.ripple, in: host, generation: gen) {
+            emitWave(wave, at: originPoint, color: colors.ripple, in: host, generation: gen) {
                 rippleDidFinish()
                 done()
             }
-            track(ripple: layers)
         }
     }
 
@@ -231,30 +230,57 @@ final class CoreAnimationSurfaceRenderer: SurfaceRendering {
             discard(layer)
         }
         fadingLayers.removeAll()
-        for layer in collapsingLayers {
-            discard(layer)
+        for record in waves {
+            recycle(record)
         }
-        collapsingLayers.removeAll()
-        for group in rippleLayers {
-            for layer in group { discard(layer) }
+        waves.removeAll()
+        for flash in flashes {
+            discard(flash)
         }
-        rippleLayers.removeAll()
+        flashes.removeAll()
+    }
+
+    /// Finished waves still held for a re-press (for tests and diagnostics).
+    var lingeringWaveCount: Int {
+        waves.filter { $0.state == .lingering }.count
     }
 
     /// Layers currently owned by the renderer (for tests and diagnostics).
     var ownedLayerCount: Int {
-        illuminationLayers.count + fadingLayers.count + collapsingLayers.count + rippleLayers.reduce(0) { $0 + $1.count }
+        illuminationLayers.count + fadingLayers.count + flashes.count + waves.reduce(0) { $0 + $1.layers.count }
     }
 
     // MARK: Wave
 
+    /// One emitted wave and what it needs to run backwards.
+    private final class WaveRecord {
+        enum State { case travelling, lingering, collapsing }
+        let layers: [CAGradientLayer]
+        let startLocations: [[NSNumber]]
+        let endLocations: [[NSNumber]]
+        /// How long a finished wave stays reversible.
+        let linger: TimeInterval
+        var state: State = .travelling
+        var recycleTask: Task<Void, Never>?
+
+        init(layers: [CAGradientLayer], startLocations: [[NSNumber]], endLocations: [[NSNumber]], linger: TimeInterval) {
+            self.layers = layers
+            self.startLocations = startLocations
+            self.endLocations = endLocations
+            self.linger = linger
+        }
+    }
+
     private struct WaveLayer {
         let layer: CAGradientLayer
+        let frames: [[NSNumber]]
         let locations: CAKeyframeAnimation
         let opacity: CAKeyframeAnimation
     }
 
-    /// Emits the ring and/or disc for `wave` and returns the layers used.
+    /// Emits the ring and/or disc for `wave`. The wave reports `completion`
+    /// when its travel ends, then lingers invisibly for at least 0.6 s so a
+    /// re-press within a human double tap can still pull it back.
     private func emitWave(
         _ wave: RippleWave,
         at origin: CGPoint,
@@ -262,12 +288,12 @@ final class CoreAnimationSurfaceRenderer: SurfaceRendering {
         in host: EffectHostView,
         generation gen: Int,
         completion: @escaping @MainActor () -> Void
-    ) -> [CALayer] {
+    ) {
         let side = wave.travelRadius * 2
         let times = wave.sampleTimes(count: waveSampleCount)
         let keyTimes = times.map { NSNumber(value: $0 / wave.duration) }
         let envelope = times.map { NSNumber(value: Float(wave.envelope(at: $0))) }
-        var waveLayers: [WaveLayer] = []
+        var items: [WaveLayer] = []
 
         if wave.profile == .softGradient || wave.profile == .combined {
             let disc = dequeueGradient()
@@ -281,7 +307,7 @@ final class CoreAnimationSurfaceRenderer: SurfaceRendering {
                 let inner = max(0, (wave.radius(at: t) - wave.wavefrontWidth) / wave.travelRadius)
                 return [0, NSNumber(value: Double(min(inner, r))), NSNumber(value: Double(r))]
             }
-            waveLayers.append(makeWaveLayer(disc, frames: frames, envelope: envelope, keyTimes: keyTimes, duration: wave.duration))
+            items.append(makeWaveLayer(disc, frames: frames, envelope: envelope, keyTimes: keyTimes, duration: wave.duration))
         }
 
         if wave.profile == .wavefront || wave.profile == .combined {
@@ -304,32 +330,42 @@ final class CoreAnimationSurfaceRenderer: SurfaceRendering {
                     return NSNumber(value: Double(location))
                 }
             }
-            waveLayers.append(makeWaveLayer(ring, frames: frames, envelope: envelope, keyTimes: keyTimes, duration: wave.duration))
+            items.append(makeWaveLayer(ring, frames: frames, envelope: envelope, keyTimes: keyTimes, duration: wave.duration))
         }
 
-        guard !waveLayers.isEmpty else {
+        guard !items.isEmpty else {
             completion()
-            return []
+            return
         }
-        let layers = waveLayers.map { $0.layer as CALayer }
-        for item in waveLayers {
+        while waves.count >= maximumRipples, let oldest = waves.first {
+            recycle(oldest)
+        }
+        let record = WaveRecord(
+            layers: items.map { $0.layer },
+            startLocations: items.map { $0.frames.first ?? [] },
+            endLocations: items.map { $0.frames.last ?? [] },
+            linger: max(0.6, wave.duration * 1.5)
+        )
+        waves.append(record)
+        for item in items {
             host.layer.addSublayer(item.layer)
         }
         runTransaction(generation: gen, animations: {
-            for item in waveLayers {
+            for item in items {
                 item.layer.add(item.locations, forKey: "td.locations")
                 item.layer.add(item.opacity, forKey: "td.envelope")
             }
         }, completion: { [weak self] in
-            guard let self else { return }
-            self.untrack(ripple: layers)
-            // A collapsing layer is recycled by its collapse instead.
-            for layer in layers where !self.collapsingLayers.contains(where: { $0 === layer }) {
-                self.recycle(layer)
-            }
             completion()
+            guard let self, record.state == .travelling, self.waves.contains(where: { $0 === record }) else { return }
+            // Finished: keep it, invisible, so a re-press can pull it back.
+            record.state = .lingering
+            record.recycleTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(nanoseconds: UInt64(record.linger * 1_000_000_000))
+                guard !Task.isCancelled, let self else { return }
+                self.recycle(record)
+            }
         })
-        return layers
     }
 
     private func makeWaveLayer(_ layer: CAGradientLayer, frames: [[NSNumber]], envelope: [NSNumber], keyTimes: [NSNumber], duration: TimeInterval) -> WaveLayer {
@@ -352,14 +388,21 @@ final class CoreAnimationSurfaceRenderer: SurfaceRendering {
         // Model values sit at the end state; the animations carry the motion.
         layer.locations = frames.last
         layer.opacity = 0
-        layer.setValue(frames.first, forKey: Self.startLocationsKey)
-        return WaveLayer(layer: layer, locations: loc, opacity: op)
+        return WaveLayer(layer: layer, frames: frames, locations: loc, opacity: op)
+    }
+
+    private func recycle(_ record: WaveRecord) {
+        record.recycleTask?.cancel()
+        record.recycleTask = nil
+        waves.removeAll { $0 === record }
+        for layer in record.layers {
+            recycle(layer)
+        }
     }
 
     // MARK: Reversal
 
-    private static let startLocationsKey = "td.startLocations"
-    private let collapseDuration: TimeInterval = 0.16
+    private let collapseDuration: TimeInterval = 0.22
 
     /// The live illumination layer for `id` (tests and diagnostics).
     func illuminationLayer(for id: TouchIdentifier) -> CALayer? {
@@ -416,56 +459,53 @@ final class CoreAnimationSurfaceRenderer: SurfaceRendering {
         layer.add(anim, forKey: "td.position")
     }
 
-    /// Runs every in-flight wave backwards to its origin and fades it out.
+    /// Runs every travelling or lingering wave back into the finger.
     ///
-    /// The running keyframe animations are replaced, not layered over: Core
-    /// Animation keeps playing an earlier animation on the same key path, so
-    /// the presentation values are captured, the originals removed, and the
-    /// collapse animated from there. Removing the originals completes the
-    /// wave's transaction, which reports the lift finished and leaves the
-    /// collapsing layers to be recycled when the collapse ends.
+    /// Core Animation keeps playing an earlier animation on the same key path,
+    /// so the running animations are replaced from their presentation values.
+    /// The pull-back brightens toward the wave's launch intensity while it
+    /// contracts, so it reads as the wave returning, and vanishes at the
+    /// origin under the re-lit illumination.
     private func collapseActiveRipples() {
         let gen = generation
-        for group in rippleLayers {
-            for layer in group where !collapsingLayers.contains(where: { $0 === layer }) {
-                guard let presented = layer.presentation() else {
-                    // Never drawn yet: nothing to reverse.
+        for record in waves where record.state != .collapsing {
+            let wasLingering = record.state == .lingering
+            record.recycleTask?.cancel()
+            record.recycleTask = nil
+            record.state = .collapsing
+            var from: [(locations: [NSNumber], opacity: Float)] = []
+            withoutImplicitAnimations {
+                for (i, layer) in record.layers.enumerated() {
+                    let presented = layer.presentation()
+                    let locations = wasLingering ? record.endLocations[i] : (presented?.locations ?? record.endLocations[i])
+                    let opacity: Float = wasLingering ? 0 : (presented?.opacity ?? 0)
+                    from.append((locations, opacity))
                     layer.removeAnimation(forKey: "td.locations")
                     layer.removeAnimation(forKey: "td.envelope")
-                    continue
-                }
-                let fromOpacity = presented.opacity
-                let gradient = layer as? CAGradientLayer
-                let fromLocations = (presented as? CAGradientLayer)?.locations ?? gradient?.locations
-                let start = gradient?.value(forKey: Self.startLocationsKey) as? [NSNumber]
-                collapsingLayers.append(layer)
-                withoutImplicitAnimations {
-                    layer.removeAnimation(forKey: "td.locations")
-                    layer.removeAnimation(forKey: "td.envelope")
+                    layer.locations = record.startLocations[i]
                     layer.opacity = 0
-                    if let gradient, let start { gradient.locations = start }
                 }
-                runTransaction(generation: gen, animations: {
-                    let fade = CABasicAnimation(keyPath: "opacity")
-                    fade.fromValue = fromOpacity
-                    fade.toValue = 0
-                    fade.duration = collapseDuration
-                    fade.timingFunction = CAMediaTimingFunction(name: .easeIn)
-                    layer.add(fade, forKey: "td.collapseOpacity")
-                    if let gradient, let start, let fromLocations {
-                        let back = CABasicAnimation(keyPath: "locations")
-                        back.fromValue = fromLocations
-                        back.toValue = start
-                        back.duration = collapseDuration
-                        back.timingFunction = CAMediaTimingFunction(name: .easeIn)
-                        gradient.add(back, forKey: "td.collapseLocations")
-                    }
-                }, completion: { [weak self] in
-                    guard let self else { return }
-                    self.collapsingLayers.removeAll { $0 === layer }
-                    self.recycle(layer)
-                })
             }
+            let duration = collapseDuration
+            runTransaction(generation: gen, animations: {
+                for (i, layer) in record.layers.enumerated() {
+                    let back = CABasicAnimation(keyPath: "locations")
+                    back.fromValue = from[i].locations
+                    back.toValue = record.startLocations[i]
+                    back.duration = duration
+                    back.timingFunction = CAMediaTimingFunction(name: .easeIn)
+                    layer.add(back, forKey: "td.collapseLocations")
+
+                    let glow = CAKeyframeAnimation(keyPath: "opacity")
+                    glow.values = [NSNumber(value: from[i].opacity), 0.7, 0.45, 0]
+                    glow.keyTimes = [0, 0.45, 0.85, 1]
+                    glow.duration = duration
+                    glow.calculationMode = .linear
+                    layer.add(glow, forKey: "td.collapseOpacity")
+                }
+            }, completion: { [weak self] in
+                self?.recycle(record)
+            })
         }
     }
 
@@ -569,18 +609,5 @@ final class CoreAnimationSurfaceRenderer: SurfaceRendering {
         recycle(layer)
     }
 
-    private func track(ripple layers: [CALayer]) {
-        rippleLayers.append(layers)
-        while rippleLayers.count > maximumRipples {
-            let oldest = rippleLayers.removeFirst()
-            for layer in oldest { discard(layer) }
-        }
-    }
-
-    private func untrack(ripple layers: [CALayer]) {
-        rippleLayers.removeAll { group in
-            group.count == layers.count && zip(group, layers).allSatisfy { $0 === $1 }
-        }
-    }
 }
 #endif

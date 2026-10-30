@@ -38,9 +38,11 @@ final class MetalSurfaceRenderer: SurfaceRendering {
         var reverseStart: TimeInterval?
         var reverseRadius: CGFloat = 0
         var reverseEnvelope: CGFloat = 0
+        /// `onFinish` has been reported.
+        var finished = false
     }
 
-    private let reverseDuration: TimeInterval = 0.16
+    private let reverseDuration: TimeInterval = 0.22
 
     private struct Flash {
         var opacity: CGFloat
@@ -280,14 +282,31 @@ final class MetalSurfaceRenderer: SurfaceRendering {
         metalView?.isHidden = true
     }
 
-    /// Runs every in-flight wave backwards to its origin.
+    /// Runs every travelling or lingering wave back into the finger.
     private func reverseRipples(at now: TimeInterval) {
         for i in ripples.indices where ripples[i].reverseStart == nil {
             let t = now - ripples[i].startTime
-            ripples[i].reverseRadius = ripples[i].wave.radius(at: t)
-            ripples[i].reverseEnvelope = ripples[i].wave.envelope(at: t)
+            let wave = ripples[i].wave
+            if t >= wave.duration {
+                ripples[i].reverseRadius = wave.travelRadius
+                ripples[i].reverseEnvelope = 0
+            } else {
+                ripples[i].reverseRadius = wave.radius(at: t)
+                ripples[i].reverseEnvelope = wave.envelope(at: t)
+            }
             ripples[i].reverseStart = now
         }
+    }
+
+    /// Opacity of a pull-back: brightens toward the launch intensity while it
+    /// contracts, then vanishes at the origin.
+    private static func pullbackEnvelope(from start: CGFloat, at u: Double) -> CGFloat {
+        let points: [(Double, CGFloat)] = [(0, start), (0.45, 0.7), (0.85, 0.45), (1, 0)]
+        for (a, b) in zip(points, points.dropFirst()) where u >= a.0 && u <= b.0 {
+            let f = CGFloat((u - a.0) / max(1e-9, b.0 - a.0))
+            return a.1 + (b.1 - a.1) * f
+        }
+        return 0
     }
 
     private func beginFade(for id: TouchIdentifier, duration: TimeInterval, at now: TimeInterval, completion: @escaping @MainActor () -> Void) {
@@ -380,38 +399,52 @@ final class MetalSurfaceRenderer: SurfaceRendering {
             }
         }
 
-        // Waves.
-        ripples.removeAll { ripple in
+        // Waves: travelling, lingering (finished, invisible, reversible) or
+        // pulling back.
+        var kept: [Ripple] = []
+        for var ripple in ripples {
             let t = now - ripple.startTime
-            var env = ripple.wave.envelope(at: t)
-            var radius = ripple.wave.radius(at: t)
+            var env: CGFloat = 0
+            var radius: CGFloat = 0
+            var visible = false
             if let reverseStart = ripple.reverseStart {
-                let k = 1 - min(1, (now - reverseStart) / reverseDuration)
-                if k <= 0 {
+                if !ripple.finished {
+                    ripple.finished = true
                     finished.append(ripple.onFinish)
-                    return true
                 }
-                env = ripple.reverseEnvelope * CGFloat(k)
-                radius = ripple.reverseRadius * CGFloat(k)
+                let u = (now - reverseStart) / reverseDuration
+                if u >= 1 { continue }
+                radius = ripple.reverseRadius * CGFloat(1 - u)
+                env = Self.pullbackEnvelope(from: ripple.reverseEnvelope, at: u)
+                visible = true
             } else if t >= ripple.wave.duration {
-                finished.append(ripple.onFinish)
-                return true
+                if !ripple.finished {
+                    ripple.finished = true
+                    finished.append(ripple.onFinish)
+                }
+                if t >= ripple.wave.duration + max(0.6, ripple.wave.duration * 1.5) { continue }
+            } else {
+                env = ripple.wave.envelope(at: t)
+                radius = ripple.wave.radius(at: t)
+                visible = true
             }
-            guard count < Self.maximumTouches else { return false }
-            var u = MetalTouch()
-            u.position = SIMD2<Float>(Float(ripple.origin.x), Float(ripple.origin.y))
-            u.ringRadius = Float(radius)
-            u.ringWidth = Float(ripple.wave.wavefrontWidth)
-            if ripple.wave.profile != .softGradient {
-                u.ringAmplitude = Float(ripple.wave.peakIntensity * env)
+            if visible, count < Self.maximumTouches {
+                var u = MetalTouch()
+                u.position = SIMD2<Float>(Float(ripple.origin.x), Float(ripple.origin.y))
+                u.ringRadius = Float(radius)
+                u.ringWidth = Float(ripple.wave.wavefrontWidth)
+                if ripple.wave.profile != .softGradient {
+                    u.ringAmplitude = Float(ripple.wave.peakIntensity * env)
+                }
+                if ripple.wave.profile != .wavefront {
+                    u.discAmplitude = Float(0.6 * ripple.wave.peakIntensity * env)
+                }
+                uniforms.set(u, at: count)
+                count += 1
             }
-            if ripple.wave.profile != .wavefront {
-                u.discAmplitude = Float(0.6 * ripple.wave.peakIntensity * env)
-            }
-            uniforms.set(u, at: count)
-            count += 1
-            return false
+            kept.append(ripple)
         }
+        ripples = kept
 
         // Static flashes (Reduce Motion).
         flashes.removeAll { flash in

@@ -208,6 +208,33 @@ final class GesturePassThroughUITests: XCTestCase {
         XCTAssertTrue(lines.filter { $0.hasPrefix("release") }.allSatisfy { $0.contains("ripple=true") })
     }
 
+    /// A slow double tap: tap, pause, then press and hold so the pull-back
+    /// runs to completion under the finger. Markers let a capture rig find it.
+    func testSlowDoubleTapPullsTheWaveBack() {
+        let logPath = "/tmp/td-commands-slowdouble.txt"
+        try? FileManager.default.removeItem(atPath: logPath)
+        let app = XCUIApplication()
+        app.launchArguments = ["-td-preset", ProcessInfo.processInfo.environment["TD_PRESET"] ?? "fluid", "-td-mode", "full", "-td-log", logPath]
+        app.launch()
+        let firstComment = app.staticTexts["This is exactly the kind of micro-interaction that makes an app feel alive."].firstMatch
+        XCTAssertTrue(firstComment.waitForExistence(timeout: 15))
+        Thread.sleep(forTimeInterval: 1.0)
+        let point = firstComment.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.5))
+        marker("slow-tap1")
+        point.tap()
+        Thread.sleep(forTimeInterval: 0.25)
+        marker("slow-press2")
+        point.press(forDuration: 1.0)
+        marker("slow-done")
+        Thread.sleep(forTimeInterval: 0.8)
+
+        let log = (try? String(contentsOfFile: logPath, encoding: .utf8)) ?? ""
+        try? log.write(toFile: "/tmp/td-result-slowdouble.txt", atomically: true, encoding: .utf8)
+        let kinds = log.split(separator: "\n").map { String($0.split(separator: " ").first ?? "") }
+        XCTAssertEqual(kinds.filter { $0 == "illuminate" }.count, 2, "both touches reached the engine: \(kinds)")
+        XCTAssertEqual(kinds.filter { $0 == "release" }.count, 2, "both touches released: \(kinds)")
+    }
+
     func testBaselineWithoutEffects() {
         let app = launch(mode: "off")
         checkTapTogglesLike(app, mode: "off")

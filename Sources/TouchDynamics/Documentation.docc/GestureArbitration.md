@@ -35,7 +35,7 @@ the touch lands even inside scroll views with `delaysContentTouches`.
 | Drag | Beyond ``GestureConfiguration/tapSlop``: ``DragBehavior/follow`` (default) or ``DragBehavior/dissipate`` |
 | Drag out | Beyond bounds + ``GestureConfiguration/exitMargin``: dims, release dissipates |
 | Cancellation | ``CancellationBehavior/dissipate`` or ``CancellationBehavior/suppress`` |
-| Re-press during the lift | The fade, the wave and the spring stop and run back to the pressed state: the light ramps back up and slides under the new finger, the wave collapses to its origin, the spring retargets |
+| Re-press during the lift | The fade, the wave and the spring stop and run back to the pressed state: the light ramps back up and slides under the new finger, the wave is drawn back into the finger (brightening as it contracts), the spring retargets. A finished wave stays reversible for about a second after the lift |
 | Multi-touch | Independent sessions up to ``GestureConfiguration/maximumConcurrentTouches`` |
 | Reused cell | Leaving the window resets everything instantly |
 
