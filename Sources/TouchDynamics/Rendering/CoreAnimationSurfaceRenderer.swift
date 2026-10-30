@@ -267,10 +267,14 @@ final class CoreAnimationSurfaceRenderer: SurfaceRendering {
             let peak = color.scaledAlpha(wave.peakIntensity)
             ring.colors = [clear, soft, peak, soft, clear]
             let w = wave.wavefrontWidth
+            let travel = wave.travelRadius
             let frames: [[NSNumber]] = times.map { t in
-                let r = wave.radius(at: t)
-                return [r - 2 * w, r - w, r, r + w, r + 2 * w].map {
-                    NSNumber(value: Double(($0 / wave.travelRadius).clamped(to: 0...1)))
+                // Spelled-out types: the one-line form times out the type checker.
+                let r: CGFloat = wave.radius(at: t)
+                let stops: [CGFloat] = [r - 2 * w, r - w, r, r + w, r + 2 * w]
+                return stops.map { stop -> NSNumber in
+                    let location: CGFloat = (stop / travel).clamped(to: 0...1)
+                    return NSNumber(value: Double(location))
                 }
             }
             waveLayers.append(makeWaveLayer(ring, frames: frames, envelope: envelope, keyTimes: keyTimes, duration: wave.duration))
