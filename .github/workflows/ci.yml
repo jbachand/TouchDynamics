@@ -59,9 +59,11 @@ jobs:
             CODE_SIGNING_ALLOWED=NO
       - name: UI tests (real touches through the observer)
         run: |
+          set -o pipefail
           xcodebuild test \
             -project Example/TouchDynamicsExample.xcodeproj \
             -scheme TouchDynamicsExample \
             -destination 'platform=iOS Simulator,name=iPhone 16' \
             -derivedDataPath Example/.derived \
-            -only-testing:TouchDynamicsExampleUITests
+            -only-testing:TouchDynamicsExampleUITests \
+            | xcbeautify --renderer github-actions
