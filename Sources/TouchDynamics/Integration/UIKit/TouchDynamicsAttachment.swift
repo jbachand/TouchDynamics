@@ -347,7 +347,7 @@ extension TouchDynamicsAttachment: TouchSurface {
         }
     }
 
-    func observedTouchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+    func observedTouchesBegan(_ touches: [RoutedTouch], with event: UIEvent) {
         guard let host else { return }
         if engine.activeSessions.isEmpty {
             scrollObserver.beginObserving(ancestorsOf: host)
@@ -363,33 +363,33 @@ extension TouchDynamicsAttachment: TouchSurface {
                 engine.scrollDidBegin()
             }
         }
-        for touch in touches {
-            engine.handle(.began(id: TouchIdentifier(object: touch), location: location(of: touch, in: host), time: touch.timestamp))
+        for item in touches {
+            engine.handle(.began(id: item.id, location: location(of: item.touch, in: host), time: item.touch.timestamp))
         }
         scheduleLongPressCheck()
     }
 
-    func observedTouchesMoved(_ touches: Set<UITouch>, with event: UIEvent) {
+    func observedTouchesMoved(_ touches: [RoutedTouch], with event: UIEvent) {
         guard let host else { return }
         if !engine.isScrolling, scrollObserver.isAnyObservedScrollViewMoving || surfaceHasScrolled {
             engine.scrollDidBegin()
         }
-        for touch in touches {
-            engine.handle(.moved(id: TouchIdentifier(object: touch), location: location(of: touch, in: host), time: touch.timestamp))
+        for item in touches {
+            engine.handle(.moved(id: item.id, location: location(of: item.touch, in: host), time: item.touch.timestamp))
         }
     }
 
-    func observedTouchesEnded(_ touches: Set<UITouch>, with event: UIEvent) {
+    func observedTouchesEnded(_ touches: [RoutedTouch], with event: UIEvent) {
         guard let host else { return }
-        for touch in touches {
-            engine.handle(.ended(id: TouchIdentifier(object: touch), location: location(of: touch, in: host), time: touch.timestamp))
+        for item in touches {
+            engine.handle(.ended(id: item.id, location: location(of: item.touch, in: host), time: item.touch.timestamp))
         }
         fingersLifted()
     }
 
-    func observedTouchesCancelled(_ touches: Set<UITouch>, with event: UIEvent) {
-        for touch in touches {
-            engine.handle(.cancelled(id: TouchIdentifier(object: touch), time: touch.timestamp))
+    func observedTouchesCancelled(_ touches: [RoutedTouch], with event: UIEvent) {
+        for item in touches {
+            engine.handle(.cancelled(id: item.id, time: item.touch.timestamp))
         }
         fingersLifted()
     }

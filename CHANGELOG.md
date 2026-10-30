@@ -4,6 +4,15 @@ All notable changes to TouchDynamics are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.2.2] - 2026-10-29
+
+### Fixed
+- Double taps: UIKit reuses the `UITouch` object across the taps of a
+  multi-tap sequence, so the second tap carried the identifier of the session
+  still releasing from the first and the engine dropped it as a duplicate.
+  The window router now assigns a fresh identifier at every touch-down, so
+  the second tap reverses the first lift and then releases normally.
+
 ## [1.2.1] - 2026-10-29
 
 ### Fixed

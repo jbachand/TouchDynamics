@@ -69,6 +69,16 @@ final class TouchObservationGestureRecognizer: UIGestureRecognizer {
     }
 }
 
+/// A touch together with the identifier assigned to it at touch-down.
+///
+/// UIKit reuses `UITouch` objects across the taps of a multi-tap sequence, so
+/// object identity cannot distinguish the second tap of a double tap from the
+/// first; the router hands out a fresh identifier for every touch-down.
+struct RoutedTouch {
+    let touch: UITouch
+    let id: TouchIdentifier
+}
+
 /// A view-backed surface that receives routed touches.
 @MainActor
 protocol TouchSurface: AnyObject {
@@ -76,10 +86,10 @@ protocol TouchSurface: AnyObject {
     var regionView: UIView? { get }
     var isObservationEnabled: Bool { get }
     func accepts(_ touch: UITouch) -> Bool
-    func observedTouchesBegan(_ touches: Set<UITouch>, with event: UIEvent)
-    func observedTouchesMoved(_ touches: Set<UITouch>, with event: UIEvent)
-    func observedTouchesEnded(_ touches: Set<UITouch>, with event: UIEvent)
-    func observedTouchesCancelled(_ touches: Set<UITouch>, with event: UIEvent)
+    func observedTouchesBegan(_ touches: [RoutedTouch], with event: UIEvent)
+    func observedTouchesMoved(_ touches: [RoutedTouch], with event: UIEvent)
+    func observedTouchesEnded(_ touches: [RoutedTouch], with event: UIEvent)
+    func observedTouchesCancelled(_ touches: [RoutedTouch], with event: UIEvent)
 }
 
 /// Routes window touches to the innermost registered surface under the finger.
@@ -94,8 +104,14 @@ final class WindowTouchRouter: NSObject, UIGestureRecognizerDelegate {
         weak var surface: (any TouchSurface)?
     }
 
+    private struct Route {
+        weak var surface: (any TouchSurface)?
+        let id: TouchIdentifier
+    }
+
     private var entries: [WeakSurface] = []
-    private var routes: [ObjectIdentifier: WeakSurface] = [:]
+    private var routes: [ObjectIdentifier: Route] = [:]
+    private var nextIdentifier: UInt = 1
     private weak var recognizer: TouchObservationGestureRecognizer?
 
     /// The router for `window`, creating and installing one if needed.
@@ -180,7 +196,9 @@ final class WindowTouchRouter: NSObject, UIGestureRecognizerDelegate {
             }
         }
         guard let best else { return false }
-        routes[ObjectIdentifier(touch)] = WeakSurface(surface: best.surface)
+        routes[ObjectIdentifier(touch)] = Route(surface: best.surface, id: TouchIdentifier(rawValue: nextIdentifier))
+        nextIdentifier &+= 1
+        if nextIdentifier == 0 { nextIdentifier = 1 }
         return true
     }
 
@@ -208,16 +226,17 @@ final class WindowTouchRouter: NSObject, UIGestureRecognizerDelegate {
         routes.removeAll()
     }
 
-    private func dispatch(_ touches: Set<UITouch>, _ body: (any TouchSurface, Set<UITouch>) -> Void) {
-        var grouped: [ObjectIdentifier: (any TouchSurface, Set<UITouch>)] = [:]
+    private func dispatch(_ touches: Set<UITouch>, _ body: (any TouchSurface, [RoutedTouch]) -> Void) {
+        var grouped: [ObjectIdentifier: (any TouchSurface, [RoutedTouch])] = [:]
         for touch in touches {
-            guard let surface = routes[ObjectIdentifier(touch)]?.surface else { continue }
+            guard let route = routes[ObjectIdentifier(touch)], let surface = route.surface else { continue }
             let key = ObjectIdentifier(surface)
+            let routed = RoutedTouch(touch: touch, id: route.id)
             if var existing = grouped[key] {
-                existing.1.insert(touch)
+                existing.1.append(routed)
                 grouped[key] = existing
             } else {
-                grouped[key] = (surface, [touch])
+                grouped[key] = (surface, [routed])
             }
         }
         for (_, pair) in grouped {

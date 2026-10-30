@@ -183,6 +183,31 @@ final class GesturePassThroughUITests: XCTestCase {
         XCTAssertTrue(release?.contains("didScroll=true") == true, "the engine saw the scroll: \(release ?? "none")")
     }
 
+    func testDoubleTapReversesThenRelaunches() {
+        let logPath = "/tmp/td-commands-doubletap.txt"
+        try? FileManager.default.removeItem(atPath: logPath)
+        let app = XCUIApplication()
+        app.launchArguments = ["-td-preset", "fluid", "-td-mode", "full", "-td-log", logPath]
+        app.launch()
+        let firstComment = app.staticTexts["This is exactly the kind of micro-interaction that makes an app feel alive."].firstMatch
+        XCTAssertTrue(firstComment.waitForExistence(timeout: 15))
+        Thread.sleep(forTimeInterval: 0.5)
+
+        firstComment.doubleTap()
+        Thread.sleep(forTimeInterval: 1.0)
+
+        let log = (try? String(contentsOfFile: logPath, encoding: .utf8)) ?? ""
+        try? log.write(toFile: "/tmp/td-result-doubletap.txt", atomically: true, encoding: .utf8)
+        let lines = log.split(separator: "\n").map(String.init)
+        let kinds = lines.map { String($0.split(separator: " ").first ?? "") }
+        let illuminates = kinds.filter { $0 == "illuminate" }.count
+        let releases = kinds.filter { $0 == "release" }.count
+        XCTAssertEqual(illuminates, 2, "both taps of a double tap reach the engine: \(lines)")
+        XCTAssertEqual(releases, 2, "both taps release: \(lines)")
+        XCTAssertEqual(kinds.filter { $0 == "illuminate" || $0 == "release" }, ["illuminate", "release", "illuminate", "release"], "press, lift, press again, lift: \(lines)")
+        XCTAssertTrue(lines.filter { $0.hasPrefix("release") }.allSatisfy { $0.contains("ripple=true") })
+    }
+
     func testBaselineWithoutEffects() {
         let app = launch(mode: "off")
         checkTapTogglesLike(app, mode: "off")
